@@ -40,3 +40,26 @@ export function findTool(name: ToolName): string | null {
 export function missingToolReason(name: ToolName): string {
   return `${name} is not installed (${INSTALL_HINT[name]})`;
 }
+
+export const ALL_TOOLS: readonly ToolName[] = [
+  "biome",
+  "ruff",
+  "pyright",
+  "jscpd",
+  "semgrep",
+  "gitleaks",
+  "osv-scanner",
+];
+
+/** Which tools this machine has, and whether VERITAS bundles them or found them on PATH. */
+export function toolStatuses(): Array<{
+  name: ToolName;
+  available: boolean;
+  source: "bundled" | "path" | null;
+}> {
+  return ALL_TOOLS.map((name) => {
+    const path = findTool(name);
+    const source = path === null ? null : path.includes("node_modules") ? "bundled" : "path";
+    return { name, available: path !== null, source };
+  });
+}

@@ -21,9 +21,17 @@ Verification Engine for Repository Integrity, Testing & Assessment of Software
 
 ```sh
 bun install
+bun run scan        # สแกน code/ แล้วแสดงผลใน terminal (--help ดูตัวเลือก)
+bun run api         # เปิด API ที่ http://127.0.0.1:4000 (เอกสาร: docs/api.md)
 bun run typecheck   # ตรวจ type ทั้ง 3 package
-bun test            # รันเทสต์ทั้งหมด
+bun test            # รันเทสต์ทั้งหมด (VERITAS_NETWORK_TESTS=1 เพื่อรวมเทสต์ Semgrep/OSV)
 bun run lint        # Biome
+```
+
+เครื่องมือภายนอกที่ต้องติดตั้งเอง (ถ้าไม่มี มิตินั้นจะขึ้น "skipped" พร้อมเหตุผล):
+
+```sh
+brew install ruff semgrep gitleaks osv-scanner
 ```
 
 ## ตั้งค่า
