@@ -41,6 +41,10 @@ export const thresholdsSchema = z.object({
   minDuplicateLines: z.int().positive().default(8),
   /** Test files per source file below which the testing dimension reports a finding. */
   minTestRatio: z.number().min(0).max(1).default(0.2),
+  /** Share of all source lines that may be duplicated before a project-level finding. */
+  maxDuplicatePercent: z.number().min(0).max(100).default(5),
+  /** Share of public functions and classes that should have a doc comment or docstring. */
+  minDocCoverage: z.number().min(0).max(1).default(0.3),
 });
 
 export const gateSchema = z.object({
@@ -60,6 +64,11 @@ export const configSchema = z.object({
   /** Overrides for dimension weights in the overall score. Missing keys keep defaults. */
   weights: z.partialRecord(dimensionSchema, z.number().nonnegative()).default({}),
   thresholds: thresholdsSchema.prefault({}),
+  /**
+   * Semgrep rule sets for the security dimension. Registry rule sets ("p/...") are
+   * downloaded from semgrep.dev; the scanned code itself is never uploaded.
+   */
+  semgrepRules: z.array(z.string().min(1)).min(1).default(["p/default"]),
   gate: gateSchema.prefault({}),
   /** Per-analyzer timeout. A timed-out analyzer is marked failed; the scan continues. */
   analyzerTimeoutMs: z.int().positive().default(120_000),

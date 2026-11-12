@@ -1,14 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import {
-  findPython,
-  measurePythonFiles,
-} from "../../src/engine/analyzers/complexity/python-metrics";
+import { collectPythonFacts, findPython } from "../../src/engine/languages/python/python-facts";
 
 const python = findPython();
 const signal = new AbortController().signal;
 
 async function measure(content: string) {
-  const [result] = await measurePythonFiles(python!, [{ path: "m.py", content }], signal);
+  const [result] = await collectPythonFacts(python!, [{ path: "m.py", content }], signal);
   return result!;
 }
 
@@ -20,7 +17,7 @@ async function only(content: string) {
 }
 
 // Same reference cases as ts-metrics.test.ts, so both languages score alike.
-describe.skipIf(!python)("measurePythonFiles", () => {
+describe.skipIf(!python)("collectPythonFacts", () => {
   test("sum_of_primes: nested loops", async () => {
     const fn = await only(`
 def sum_of_primes(limit):

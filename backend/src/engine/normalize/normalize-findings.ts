@@ -126,3 +126,30 @@ function normalizeWhitespace(text: string): string {
 function sha256(text: string): string {
   return createHash("sha256").update(text).digest("hex");
 }
+
+export const SECRET_LINE_PLACEHOLDER = "[hidden: this line contains a detected secret]";
+
+/**
+ * Hides the snippet of any finding that overlaps a line where a secret was detected.
+ * Gitleaks redacts its own output, but another analyzer reporting on the same line
+ * (a lint rule, a type error) would otherwise copy the secret into the report.
+ */
+export function redactSecretLines(findings: readonly Finding[]): Finding[] {
+  const secretLines = new Map<string, Array<[number, number]>>();
+  for (const f of findings) {
+    if (f.dimension !== "secrets" || f.startLine === undefined) continue;
+    const ranges = secretLines.get(f.file) ?? [];
+    ranges.push([f.startLine, f.endLine ?? f.startLine]);
+    secretLines.set(f.file, ranges);
+  }
+  if (secretLines.size === 0) return [...findings];
+
+  return findings.map((f) => {
+    if (f.dimension === "secrets" || f.snippet === undefined || f.startLine === undefined) return f;
+    const start = f.startLine;
+    // Snippets cover at most MAX_SNIPPET_LINES lines from startLine.
+    const end = Math.min(f.endLine ?? start, start + MAX_SNIPPET_LINES - 1);
+    const overlaps = secretLines.get(f.file)?.some(([s, e]) => s <= end && e >= start);
+    return overlaps ? { ...f, snippet: SECRET_LINE_PLACEHOLDER } : f;
+  });
+}

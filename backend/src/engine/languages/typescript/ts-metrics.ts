@@ -1,5 +1,5 @@
 import ts from "typescript";
-import type { FileMetrics, FunctionMetrics } from "./function-metrics";
+import type { FileMetrics, FunctionMetrics } from "../function-metrics";
 
 type FunctionNode =
   | ts.FunctionDeclaration
@@ -37,7 +37,7 @@ function isLogical(node: ts.Node): node is ts.BinaryExpression {
   return ts.isBinaryExpression(node) && LOGICAL_OPERATORS.has(node.operatorToken.kind);
 }
 
-function scriptKindFor(path: string): ts.ScriptKind {
+export function scriptKindFor(path: string): ts.ScriptKind {
   if (/\.tsx$/i.test(path)) return ts.ScriptKind.TSX;
   if (/\.[cm]?ts$/i.test(path)) return ts.ScriptKind.TS;
   if (/\.jsx$/i.test(path)) return ts.ScriptKind.JSX;

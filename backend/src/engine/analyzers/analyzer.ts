@@ -22,6 +22,27 @@ export interface AnalyzerContext {
   discovery: DiscoveryResult;
   /** Aborted on timeout. Analyzers that spawn processes must pass it on. */
   signal: AbortSignal;
+  /**
+   * Computes `compute()` once per scan and shares the result between analyzers, e.g.
+   * parsing every Python file once for complexity, correctness and maintainability.
+   * The first caller's `signal` governs the shared computation.
+   */
+  memo<T>(key: string, compute: () => Promise<T>): Promise<T>;
+}
+
+export type Memo = AnalyzerContext["memo"];
+
+/** A memo whose cache lives as long as the returned function. One per scan. */
+export function createMemo(): Memo {
+  const cache = new Map<string, Promise<unknown>>();
+  return <T>(key: string, compute: () => Promise<T>): Promise<T> => {
+    let promise = cache.get(key) as Promise<T> | undefined;
+    if (!promise) {
+      promise = compute();
+      cache.set(key, promise);
+    }
+    return promise;
+  };
 }
 
 export type AnalyzerResult =

@@ -12,11 +12,11 @@ import {
 import { z } from "zod";
 import type { ResolvedConfig } from "../config/load-config";
 import { enabledDimensions, resolveWeights } from "../config/weights";
-import type { Analyzer, AnalyzerResult } from "./analyzers/analyzer";
+import { type Analyzer, type AnalyzerResult, createMemo, type Memo } from "./analyzers/analyzer";
 import { ANALYZERS } from "./analyzers/registry";
 import { discoverFiles } from "./discovery/discover-files";
 import type { DiscoveryResult, SourceFile } from "./discovery/source-file";
-import { normalizeFindings, sortFindings } from "./normalize/normalize-findings";
+import { normalizeFindings, redactSecretLines, sortFindings } from "./normalize/normalize-findings";
 import { evaluateGate } from "./scoring/gate";
 import { countSeverities, overallScore, scoreDimension } from "./scoring/score";
 
@@ -51,6 +51,7 @@ export async function runScan(
   onEvent({ type: "discovery-finished", files: stats.files, lines: stats.lines });
 
   const filesByPath = new Map(discovery.files.map((f) => [f.path, f]));
+  const memo = createMemo();
   const dimensions = enabledDimensions(config);
   const outcomes = await Promise.all(
     dimensions.map(async (dimension) => {
@@ -60,13 +61,14 @@ export async function runScan(
         discovery,
         filesByPath,
         scanId,
+        memo,
       });
       onEvent({ type: "analyzer-finished", run: outcome.run });
       return outcome;
     }),
   );
 
-  const findings = sortFindings(outcomes.flatMap((o) => o.findings));
+  const findings = sortFindings(redactSecretLines(outcomes.flatMap((o) => o.findings)));
   const dimensionScores: DimensionScore[] = outcomes.map(({ run, findings: dimFindings }) => {
     const score = run.status === "completed" ? scoreDimension(dimFindings, stats.lines) : null;
     return {
@@ -106,6 +108,7 @@ async function runOne(
     discovery: DiscoveryResult;
     filesByPath: ReadonlyMap<string, SourceFile>;
     scanId: string;
+    memo: Memo;
   },
 ): Promise<DimensionOutcome> {
   const started = performance.now();
@@ -131,7 +134,12 @@ async function runOne(
   let result: AnalyzerResult;
   try {
     result = await Promise.race([
-      analyzer.run({ config: ctx.config, discovery: ctx.discovery, signal: controller.signal }),
+      analyzer.run({
+        config: ctx.config,
+        discovery: ctx.discovery,
+        signal: controller.signal,
+        memo: ctx.memo,
+      }),
       timeout,
     ]);
   } catch (error) {

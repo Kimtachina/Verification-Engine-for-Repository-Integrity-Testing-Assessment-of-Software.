@@ -1,7 +1,9 @@
-"""Measure Python functions for VERITAS.
+"""Collect facts about Python files for VERITAS in a single parse.
 
 Reads {"files": [{"path": str, "content": str}]} on stdin and writes
-{"files": [{"path", "functions": [...]} | {"path", "parseError"}]} on stdout.
+{"files": [{"path", "functions", "imports", "docs", "parseError"?, "parseErrorLine"?}]}
+on stdout. Facts: per-function complexity, import statements, and docstring coverage
+of public definitions.
 
 Only `ast.parse` is used: the code under inspection is parsed, never imported or run.
 Metric definitions match ts-metrics.ts so scores are comparable across languages.
@@ -169,16 +171,66 @@ def collect(node, scope, out):
             collect(child, scope, out)
 
 
+def collect_imports(tree):
+    """Module-level and nested imports; `level` > 0 means relative (from . import x)."""
+    imports = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                imports.append({"module": alias.name, "level": 0, "names": [], "line": node.lineno})
+        elif isinstance(node, ast.ImportFrom):
+            imports.append(
+                {
+                    "module": node.module or "",
+                    "level": node.level or 0,
+                    "names": [a.name for a in node.names],
+                    "line": node.lineno,
+                }
+            )
+    return imports
+
+
+def doc_coverage(tree):
+    """Public (no leading underscore) functions, classes and methods with a docstring."""
+    total = 0
+    documented = 0
+
+    def visit(node, inside_function):
+        nonlocal total, documented
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, SCOPE_TYPES):
+                # Functions nested in functions are implementation details, not API.
+                if not inside_function and not child.name.startswith("_"):
+                    total += 1
+                    if ast.get_docstring(child):
+                        documented += 1
+                visit(child, inside_function or isinstance(child, FUNCTION_TYPES))
+
+    visit(tree, False)
+    return {"total": total, "documented": documented}
+
+
 def measure(path, content):
+    empty = {"path": path, "functions": [], "imports": [], "docs": {"total": 0, "documented": 0}}
     try:
         tree = ast.parse(content, filename=path)
         functions = []
         collect(tree, [], functions)
-        return {"path": path, "functions": functions}
-    except (SyntaxError, ValueError) as error:
-        return {"path": path, "functions": [], "parseError": f"{type(error).__name__}: {error}"}
+        return {
+            "path": path,
+            "functions": functions,
+            "imports": collect_imports(tree),
+            "docs": doc_coverage(tree),
+        }
+    except SyntaxError as error:
+        result = {**empty, "parseError": f"{type(error).__name__}: {error.msg}"}
+        if error.lineno:
+            result["parseErrorLine"] = error.lineno
+        return result
+    except ValueError as error:
+        return {**empty, "parseError": f"ValueError: {error}"}
     except RecursionError:
-        return {"path": path, "functions": [], "parseError": "Nesting too deep to parse"}
+        return {**empty, "parseError": "Nesting too deep to parse"}
 
 
 def main():

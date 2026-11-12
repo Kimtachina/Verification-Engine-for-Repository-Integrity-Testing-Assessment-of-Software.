@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { DIMENSIONS, type Dimension, type ScanEvent, scanSchema } from "@veritas/shared";
 import type { Analyzer } from "../../src/engine/analyzers/analyzer";
-import { findPython } from "../../src/engine/analyzers/complexity/python-metrics";
+import { findPython } from "../../src/engine/languages/python/python-facts";
 import { runScan } from "../../src/engine/pipeline";
 import { buildReport } from "../../src/reports/json-report";
 import { configFor, FIXTURES } from "../helpers";
@@ -10,9 +10,24 @@ import { configFor, FIXTURES } from "../helpers";
 const SAMPLE = join(FIXTURES, "sample-project");
 const CLEAN = join(FIXTURES, "clean-project");
 
+/**
+ * Dimensions whose results are identical on every machine: built in, or backed by a tool
+ * VERITAS bundles (Biome, Pyright, jscpd). Security, secrets and dependencies rely on
+ * separately installed tools and the network, so they are tested where available.
+ */
+const DETERMINISTIC: Dimension[] = [
+  "integrity",
+  "correctness",
+  "lint",
+  "complexity",
+  "duplication",
+  "testing",
+  "maintainability",
+];
+
 describe("runScan on sample-project", async () => {
   const events: ScanEvent[] = [];
-  const outcome = await runScan(configFor(SAMPLE), {
+  const outcome = await runScan(configFor(SAMPLE, { dimensions: DETERMINISTIC }), {
     scanId: "s1",
     onEvent: (e) => events.push(e),
   });
@@ -20,6 +35,7 @@ describe("runScan on sample-project", async () => {
   const summary = findings.map(
     (f) => `${f.severity} ${f.ruleId} ${f.file}${f.startLine ? `:${f.startLine}` : ""}`,
   );
+  const python = findPython() !== null;
 
   test("produces a valid scan and report", () => {
     expect(scanSchema.safeParse(scan).success).toBe(true);
@@ -30,11 +46,14 @@ describe("runScan on sample-project", async () => {
     const expected = [
       "high testing/no-tests .",
       "high testing/focused-test tests/pricing.test.ts:5",
-      ...(findPython() ? ["medium complexity/nesting app/legacy.py:2"] : []),
+      // 3 TS exports + 2 Python functions reach the 5-definition minimum only with Python.
+      ...(python ? ["medium maintainability/doc-coverage ."] : []),
+      ...(python ? ["medium complexity/nesting app/legacy.py:2"] : []),
       "medium complexity/cognitive src/pricing.ts:9",
       "medium complexity/cyclomatic src/pricing.ts:9",
       "medium complexity/nesting src/pricing.ts:9",
       "low integrity/empty-source-file src/empty.ts",
+      "low lint/complexity/useOptionalChain src/pricing.ts:15",
       "low testing/skipped-test tests/pricing.test.ts:9",
       "info testing/no-coverage-report .",
     ];
@@ -48,15 +67,11 @@ describe("runScan on sample-project", async () => {
     });
   });
 
-  test("every dimension has a run; unimplemented ones are skipped with a reason, not scored", () => {
-    expect(scan.analyzers.map((a) => a.dimension)).toEqual([...DIMENSIONS]);
-    const implemented: Dimension[] = ["integrity", "complexity", "testing"];
-    for (const run of scan.analyzers) {
-      if (implemented.includes(run.dimension)) expect(run.status).toBe("completed");
-      else expect(run).toMatchObject({ status: "skipped", reason: expect.any(String) });
-    }
+  test("every configured dimension completes and is scored", () => {
+    expect(scan.analyzers.map((a) => a.dimension)).toEqual(DETERMINISTIC);
+    for (const run of scan.analyzers) expect(run.status).toBe("completed");
     const scored = scan.dimensions.filter((d) => d.score !== null).map((d) => d.dimension);
-    expect(scored).toEqual(implemented);
+    expect(scored).toEqual(DETERMINISTIC);
   });
 
   test("scores and gate are consistent", () => {
@@ -74,14 +89,25 @@ describe("runScan on sample-project", async () => {
     expect(events[0]).toEqual({ type: "discovery-started" });
     expect(events[1]).toMatchObject({ type: "discovery-finished", files: 6 });
     expect(events.at(-1)).toMatchObject({ type: "scan-finished" });
-    expect(events.filter((e) => e.type === "analyzer-started")).toHaveLength(DIMENSIONS.length);
-    expect(events.filter((e) => e.type === "analyzer-finished")).toHaveLength(DIMENSIONS.length);
+    expect(events.filter((e) => e.type === "analyzer-started")).toHaveLength(DETERMINISTIC.length);
+    expect(events.filter((e) => e.type === "analyzer-finished")).toHaveLength(DETERMINISTIC.length);
   });
+});
+
+describe("runScan with every dimension", () => {
+  test("each of the 10 dimensions has an analyzer, and every non-completed run explains why", async () => {
+    const { scan } = await runScan(configFor(SAMPLE));
+    expect(scan.analyzers.map((a) => a.dimension)).toEqual([...DIMENSIONS]);
+    for (const run of scan.analyzers) {
+      expect(run.reason ?? "").not.toContain("No analyzer");
+      if (run.status !== "completed") expect(run.reason).toBeString();
+    }
+  }, 120_000);
 });
 
 describe("runScan on clean-project", () => {
   test("scores 100 with no scored findings and reads its coverage report", async () => {
-    const { scan, findings } = await runScan(configFor(CLEAN));
+    const { scan, findings } = await runScan(configFor(CLEAN, { dimensions: DETERMINISTIC }));
     expect(findings).toEqual([]);
     expect(scan.score).toBe(100);
     expect(scan.grade).toBe("A");

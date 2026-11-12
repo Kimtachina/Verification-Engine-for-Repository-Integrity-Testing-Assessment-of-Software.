@@ -1,10 +1,10 @@
 import type { Config, Severity } from "@veritas/shared";
 import { familyOf, isProgramSource } from "../../discovery/classify";
 import type { SourceFile } from "../../discovery/source-file";
+import type { FileMetrics, FunctionMetrics } from "../../languages/function-metrics";
+import { pythonFactsFor } from "../../languages/python/python-facts";
+import { measureTsFile } from "../../languages/typescript/ts-metrics";
 import type { Analyzer, RawFinding } from "../analyzer";
-import type { FileMetrics, FunctionMetrics } from "./function-metrics";
-import { findPython, measurePythonFiles } from "./python-metrics";
-import { measureTsFile } from "./ts-metrics";
 
 const SOURCE = "veritas";
 type Thresholds = Config["thresholds"];
@@ -16,7 +16,8 @@ function overLimitSeverity(value: number, limit: number): Severity {
 
 export const complexityAnalyzer: Analyzer = {
   dimension: "complexity",
-  async run({ config, discovery, signal }) {
+  async run(ctx) {
+    const { config, discovery } = ctx;
     const sources = discovery.files.filter(
       (f): f is SourceFile & { content: string } => isProgramSource(f) && f.content !== null,
     );
@@ -30,11 +31,17 @@ export const complexityAnalyzer: Analyzer = {
     const metrics: FileMetrics[] = jsFiles.map((f) => measureTsFile(f.path, f.content));
     let note: string | undefined;
     if (pyFiles.length > 0) {
-      const python = findPython();
-      if (python) {
-        metrics.push(...(await measurePythonFiles(python, pyFiles, signal)));
+      const python = await pythonFactsFor(ctx);
+      if (python.available) {
+        for (const file of pyFiles) {
+          const facts = python.byPath.get(file.path);
+          if (!facts) continue;
+          const m: FileMetrics = { path: facts.path, functions: facts.functions };
+          if (facts.parseError !== undefined) m.parseError = facts.parseError;
+          metrics.push(m);
+        }
       } else {
-        note = `${pyFiles.length} Python file(s) not measured: python3 not found on PATH`;
+        note = `${pyFiles.length} Python file(s) not measured: ${python.reason}`;
       }
     }
 

@@ -87,15 +87,25 @@ veritas/
 | 5 | `duplication` | โค้ดซ้ำข้ามไฟล์ | jscpd |
 | 6 | `security` | injection, crypto อ่อน, การใช้ API อันตราย | Semgrep |
 | 7 | `secrets` | key, token, รหัสผ่านในโค้ด | Gitleaks |
-| 8 | `dependencies` | ช่องโหว่ที่รู้จัก, package ไม่ได้ใช้, license | OSV-Scanner, Knip |
+| 8 | `dependencies` | ช่องโหว่ที่รู้จัก, package ที่ import แต่ไม่ได้ประกาศ, package ที่ไม่ได้ใช้, ไม่มี lockfile | OSV-Scanner + เขียนเอง (ไม่ใช้ Knip เพราะต้องรัน config ของโปรเจกต์) |
 | 9 | `testing` | มีเทสต์ไหม, อัตราส่วนเทสต์ต่อโค้ด, อ่าน coverage report ถ้ามี | เขียนเอง |
-| 10 | `maintainability` | เอกสาร, การตั้งชื่อ, circular import, dead code, TODO ค้าง | madge, Knip + เขียนเอง |
+| 10 | `maintainability` | circular import, ความครอบคลุมของเอกสาร, README, FIXME/TODO | เขียนเอง |
 
 กติกาของทุก analyzer:
 
 - interface เดียวกัน: รับรายการไฟล์และ config คืน `Finding[]`
 - ถ้าเครื่องมือภายนอกไม่ได้ติดตั้ง มิตินั้นรายงานสถานะ `skipped` พร้อมเหตุผล ไม่ล้มทั้งสแกน และไม่นับเป็นคะแนนเต็ม
 - รันขนานกัน มี timeout รายตัว
+- ผลการ parse ที่หลายตัวตรวจใช้ร่วมกัน (เช่น Python facts, TS imports) คำนวณครั้งเดียวต่อการสแกนผ่าน `memo`
+- เครื่องมือภายนอกถูกเรียกผ่าน adapter เท่านั้น ส่งชื่อไฟล์เป็น `./path` เสมอ และใช้ environment ที่ตัดตัวแปรลับออก
+
+### การส่งข้อมูลออกนอกเครื่อง
+- Semgrep ดาวน์โหลดชุดกฎจาก semgrep.dev (ไม่ส่งโค้ด)
+- OSV-Scanner ส่งชื่อและเวอร์ชันของ package ไปที่ osv.dev (ไม่ส่งโค้ด)
+- เครื่องมืออื่นทั้งหมดทำงานในเครื่องเท่านั้น
+
+### ข้อมูลลับ
+- Gitleaks ใช้ `--redact` และ snippet ของทุก finding ที่ทับบรรทัดที่มีข้อมูลลับจะถูกซ่อน ไม่ว่าจะมาจากตัวตรวจไหน
 
 ## 4. รูปแบบข้อมูลหลัก
 

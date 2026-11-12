@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { measureTsFile } from "../../src/engine/analyzers/complexity/ts-metrics";
+import { measureTsFile } from "../../src/engine/languages/typescript/ts-metrics";
 
 function only(content: string, path = "a.ts") {
   const { functions, parseError } = measureTsFile(path, content);

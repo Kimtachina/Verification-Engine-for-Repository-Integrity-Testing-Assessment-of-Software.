@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { languageFor } from "@veritas/shared";
 import { type ResolvedConfig, resolveConfig } from "../src/config/load-config";
-import type { AnalyzerContext } from "../src/engine/analyzers/analyzer";
+import { type AnalyzerContext, createMemo } from "../src/engine/analyzers/analyzer";
 import type { DiscoveryResult, SourceFile } from "../src/engine/discovery/source-file";
 import { splitLines } from "../src/engine/discovery/source-file";
 
@@ -53,6 +53,7 @@ export function contextFor(
     config: configFor(options.rootDir ?? tmpdir(), options.config),
     discovery: { files, skipped: options.skipped ?? [] },
     signal: new AbortController().signal,
+    memo: createMemo(),
   };
 }
 

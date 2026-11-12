@@ -3,6 +3,7 @@ import { lstat, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { languageFor } from "@veritas/shared";
 import { mapLimit } from "../../lib/map-limit";
+import { createIgnoreMatcher } from "./ignore";
 import {
   type DiscoveryResult,
   type SkippedEntry,
@@ -33,10 +34,7 @@ export async function discoverFiles({
   rootDir,
   ignorePatterns,
 }: DiscoverOptions): Promise<DiscoveryResult> {
-  const globs = ignorePatterns.map((p) => new Bun.Glob(p));
-  const isIgnored = (rel: string) => globs.some((g) => g.match(rel));
-  // A directory is pruned when anything inside it would be ignored, e.g. "**/node_modules/**".
-  const isIgnoredDir = (rel: string) => isIgnored(rel) || isIgnored(`${rel}/\u0000probe`);
+  const { isIgnored, isIgnoredDir } = createIgnoreMatcher(ignorePatterns);
 
   const filePaths: string[] = [];
   const skipped: SkippedEntry[] = [];

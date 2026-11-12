@@ -78,9 +78,10 @@ export const DIMENSION_META: Record<Dimension, DimensionMeta> = {
   dependencies: {
     label: "Dependencies",
     labelTh: "แพ็กเกจที่ใช้",
-    description: "Known vulnerabilities, unused packages, and licence issues.",
+    description: "Known vulnerabilities, undeclared or unused packages, and missing lockfiles.",
     defaultWeight: 2,
-    tools: ["osv-scanner", "knip"],
+    // knip is deliberately not used: it executes project config files to find entry points.
+    tools: ["osv-scanner"],
   },
   testing: {
     label: "Testing",
@@ -92,8 +93,8 @@ export const DIMENSION_META: Record<Dimension, DimensionMeta> = {
   maintainability: {
     label: "Maintainability",
     labelTh: "ความง่ายในการดูแล",
-    description: "Documentation, naming, circular imports, dead code, and stale TODOs.",
+    description: "Circular imports, documentation coverage, README, and FIXME/TODO markers.",
     defaultWeight: 1,
-    tools: ["madge", "knip"],
+    tools: [],
   },
 };
