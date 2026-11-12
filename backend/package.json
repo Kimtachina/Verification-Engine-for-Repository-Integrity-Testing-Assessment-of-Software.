@@ -4,10 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "scan": "bun src/cli.ts scan"
   },
   "dependencies": {
     "@veritas/shared": "workspace:*",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "typescript": "5.9.3"
+  },
+  "bin": {
+    "veritas": "src/cli.ts"
   }
 }

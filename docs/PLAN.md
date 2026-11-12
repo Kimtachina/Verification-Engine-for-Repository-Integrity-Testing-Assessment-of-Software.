@@ -83,7 +83,7 @@ veritas/
 | 1 | `integrity` | ไฟล์เสีย, encoding, merge conflict ค้าง, ไฟล์ใหญ่ผิดปกติ, binary ปน | เขียนเอง |
 | 2 | `correctness` | parse ไม่ผ่าน, type error | tsc, Pyright |
 | 3 | `lint` | bug pattern, style | Biome, Ruff |
-| 4 | `complexity` | cyclomatic, cognitive, ความลึก, ความยาวฟังก์ชัน/ไฟล์ | lizard + เขียนเอง |
+| 4 | `complexity` | cyclomatic, cognitive, ความลึก, ความยาวฟังก์ชัน/ไฟล์ | เขียนเอง: TypeScript compiler API, Python `ast` (parse อย่างเดียว ไม่รันโค้ด) |
 | 5 | `duplication` | โค้ดซ้ำข้ามไฟล์ | jscpd |
 | 6 | `security` | injection, crypto อ่อน, การใช้ API อันตราย | Semgrep |
 | 7 | `secrets` | key, token, รหัสผ่านในโค้ด | Gitleaks |
@@ -107,7 +107,9 @@ veritas/
 
 ## 5. การให้คะแนน
 
-- แต่ละมิติ 0–100 คิดจากความหนาแน่นของปัญหาต่อ 1,000 บรรทัด ถ่วงตาม severity
+- แต่ละมิติ 0–100: `100 × e^(−penalty/20)` โดย penalty = ผลรวมน้ำหนัก severity ของปัญหาระดับไฟล์ ÷ จำนวนพันบรรทัด (ขั้นต่ำ 1) + ผลรวมน้ำหนักของปัญหาระดับโปรเจกต์ (เช่น ไม่มีเทสต์) แบบไม่หาร
+- น้ำหนัก severity: critical 10, high 5, medium 2, low 0.5, info 0 → ปัญหา 1 ข้อต่อ 1,000 บรรทัดได้ประมาณ 61 / 78 / 90 / 98 คะแนน
+- มิติที่ถูกข้ามหรือล้มเหลวไม่ได้คะแนน และไม่นับในคะแนนรวม
 - คะแนนรวมเป็นค่าเฉลี่ยถ่วงน้ำหนัก (security, secrets, correctness น้ำหนักสูงสุด)
 - เกรด A–F
 - Quality gate: มี critical แม้ข้อเดียว = ไม่ผ่าน ไม่ว่าคะแนนรวมเท่าไร

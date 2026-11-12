@@ -16,8 +16,12 @@
     "backend": {
       "name": "@veritas/backend",
       "version": "0.1.0",
+      "bin": {
+        "veritas": "src/cli.ts",
+      },
       "dependencies": {
         "@veritas/shared": "workspace:*",
+        "typescript": "5.9.3",
         "zod": "4.6.7",
       },
     },

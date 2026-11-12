@@ -26,6 +26,11 @@ export const DEFAULT_IGNORE = [
 export const thresholdsSchema = z.object({
   /** Functions above this cyclomatic complexity are reported. */
   maxCyclomatic: z.int().positive().default(10),
+  /**
+   * Functions above this cognitive complexity are reported. Unlike cyclomatic, it
+   * penalises nesting, so it tracks how hard code is to read rather than to test.
+   */
+  maxCognitive: z.int().positive().default(15),
   /** Functions nested deeper than this are reported. */
   maxNesting: z.int().positive().default(4),
   maxFunctionLines: z.int().positive().default(60),

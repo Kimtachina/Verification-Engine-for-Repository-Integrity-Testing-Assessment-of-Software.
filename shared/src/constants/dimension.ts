@@ -48,9 +48,11 @@ export const DIMENSION_META: Record<Dimension, DimensionMeta> = {
   complexity: {
     label: "Complexity",
     labelTh: "ความซับซ้อน",
-    description: "Cyclomatic complexity, nesting depth, and over-long functions or files.",
+    description:
+      "Cyclomatic and cognitive complexity, nesting depth, and over-long functions or files.",
     defaultWeight: 1.5,
-    tools: ["lizard"],
+    // Built in: TypeScript compiler API for TS/JS, Python's own `ast` module for Python.
+    tools: [],
   },
   duplication: {
     label: "Duplication",

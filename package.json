@@ -8,6 +8,7 @@
     "frontend"
   ],
   "scripts": {
+    "scan": "bun backend/src/cli.ts scan",
     "typecheck": "tsc -p tsconfig.json && bun run --filter '*' typecheck",
     "test": "bun test",
     "lint": "biome check .",

@@ -6,3 +6,4 @@ export * from "./schemas/config.schema";
 export * from "./schemas/finding.schema";
 export * from "./schemas/report.schema";
 export * from "./schemas/scan.schema";
+export * from "./schemas/scan-event.schema";
