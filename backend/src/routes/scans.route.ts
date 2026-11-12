@@ -55,6 +55,11 @@ export function scanRoutes({ repo, runner }: { repo: ScanRepository; runner: Sca
         requireScan(params.id);
         return repo.queryFindings(params.id, parseInput(findingQuerySchema, query, "query"));
       })
+      /** Findings per file, the most severe first. */
+      .get("/:id/files", ({ params }) => {
+        requireScan(params.id);
+        return repo.fileSummaries(params.id);
+      })
       .get("/:id/events", ({ params, request }) => {
         requireScan(params.id);
         return scanEventStream(params.id, runner, repo, request.signal);

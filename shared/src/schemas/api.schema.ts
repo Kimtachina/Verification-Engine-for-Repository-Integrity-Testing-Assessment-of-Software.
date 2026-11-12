@@ -72,3 +72,16 @@ export const apiErrorSchema = z.object({
   details: z.string().optional(),
 });
 export type ApiError = z.infer<typeof apiErrorSchema>;
+
+/** One row of GET /api/scans/:id/files: how many findings a file has, by severity. */
+export const fileSummarySchema = z.object({
+  /** Scan-relative path; "." for findings about the whole project. */
+  file: z.string(),
+  total: z.int().nonnegative(),
+  critical: z.int().nonnegative(),
+  high: z.int().nonnegative(),
+  medium: z.int().nonnegative(),
+  low: z.int().nonnegative(),
+  info: z.int().nonnegative(),
+});
+export type FileSummary = z.infer<typeof fileSummarySchema>;

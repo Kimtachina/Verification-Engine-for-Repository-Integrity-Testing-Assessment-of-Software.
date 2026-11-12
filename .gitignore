@@ -17,3 +17,5 @@ code/*
 
 # Generated scan reports
 reports/
+*.tsbuildinfo
+next-env.d.ts

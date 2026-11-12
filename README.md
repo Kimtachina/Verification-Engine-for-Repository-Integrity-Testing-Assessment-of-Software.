@@ -23,6 +23,7 @@ Verification Engine for Repository Integrity, Testing & Assessment of Software
 bun install
 bun run scan        # สแกน code/ แล้วแสดงผลใน terminal (--help ดูตัวเลือก)
 bun run api         # เปิด API ที่ http://127.0.0.1:4000 (เอกสาร: docs/api.md)
+bun run web         # เปิดหน้าเว็บ dashboard ที่ http://localhost:3000 (ต้องเปิด api ก่อน)
 bun run typecheck   # ตรวจ type ทั้ง 3 package
 bun test            # รันเทสต์ทั้งหมด (VERITAS_NETWORK_TESTS=1 เพื่อรวมเทสต์ Semgrep/OSV)
 bun run lint        # Biome

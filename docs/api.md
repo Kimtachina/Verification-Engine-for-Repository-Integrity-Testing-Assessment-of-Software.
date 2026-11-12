@@ -65,6 +65,11 @@ must be completed (409 otherwise).
 ### `GET /api/scans/:id/report?format=json` → `Report`
 Downloads as `veritas-report-<id>.json`. `markdown`, `html` and `sarif` return 501 until step 6.
 
+### `GET /api/scans/:id/files` → `FileSummary[]`
+Finding counts per file (`total`, and one count per severity). Sorted by the same
+severity weights the scores use, so the file most worth fixing comes first. Project-level
+findings are grouped under file `"."`.
+
 ### `GET /api/findings/:id` → `Finding`
 
 ## Configuration (environment)
@@ -74,6 +79,6 @@ Downloads as `veritas-report-<id>.json`. `markdown`, `html` and `sarif` return 5
 | `VERITAS_CONFIG_DIR` | current directory (where `veritas.config.ts` lives) |
 | `VERITAS_DB` | `<config dir>/.veritas/veritas.db` |
 | `HOST` / `PORT` | `127.0.0.1` / `4000` |
-| `VERITAS_CORS_ORIGINS` | `http://localhost:3000` (comma-separated) |
+| `VERITAS_CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` (comma-separated) |
 
 Scans left running when the server stopped are marked `failed` at the next start.

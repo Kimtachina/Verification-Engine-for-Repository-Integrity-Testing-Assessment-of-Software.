@@ -11,6 +11,8 @@
     "scan": "bun backend/src/cli.ts scan",
     "api": "bun backend/src/server.ts",
     "api:dev": "bun --watch backend/src/server.ts",
+    "web": "bun run --cwd frontend dev",
+    "web:build": "bun run --cwd frontend build",
     "typecheck": "tsc -p tsconfig.json && bun run --filter '*' typecheck",
     "test": "bun test",
     "lint": "biome check .",

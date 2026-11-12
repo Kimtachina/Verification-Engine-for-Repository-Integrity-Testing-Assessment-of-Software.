@@ -12,12 +12,14 @@ import { VERITAS_VERSION } from "./version";
  *   VERITAS_CONFIG_DIR  folder with veritas.config.ts (default: current directory)
  *   VERITAS_DB          SQLite file (default: <config dir>/.veritas/veritas.db)
  *   HOST / PORT         listen address (default: 127.0.0.1:4000, local machine only)
- *   VERITAS_CORS_ORIGINS  comma-separated dashboard origins (default: http://localhost:3000)
+ *   VERITAS_CORS_ORIGINS  comma-separated dashboard origins (default: localhost:3000 and 127.0.0.1:3000)
  */
 const configDir = resolve(process.env.VERITAS_CONFIG_DIR ?? ".");
 const hostname = process.env.HOST ?? "127.0.0.1";
 const port = Number(process.env.PORT ?? 4000);
-const corsOrigins = (process.env.VERITAS_CORS_ORIGINS ?? "http://localhost:3000")
+const corsOrigins = (
+  process.env.VERITAS_CORS_ORIGINS ?? "http://localhost:3000,http://127.0.0.1:3000"
+)
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);

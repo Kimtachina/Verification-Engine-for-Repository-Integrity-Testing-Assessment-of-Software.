@@ -3,6 +3,7 @@ import { join } from "node:path";
 import {
   apiErrorSchema,
   type ConfigInput,
+  fileSummarySchema,
   findingPageSchema,
   findingSchema,
   healthSchema,
@@ -13,6 +14,7 @@ import {
   scanEventSchema,
   scanSchema,
 } from "@veritas/shared";
+import { z } from "zod";
 import { createApp } from "../../src/app";
 import { openDatabase } from "../../src/db/client";
 import { INTERRUPTED_ERROR, ScanRepository } from "../../src/db/scan-repository";
@@ -267,6 +269,25 @@ describe("GET /api/scans/:id/findings", () => {
     const res = await call(`/api/findings/${first?.id}`);
     expect(findingSchema.parse(res.body)).toEqual(first!);
     expect((await call("/api/findings/nope")).status).toBe(404);
+  });
+});
+
+describe("GET /api/scans/:id/files", () => {
+  test("counts per file, most severe first, summing to the scan total", async () => {
+    const scan = await completedScan();
+    const res = await call(`/api/scans/${scan.id}/files`);
+    const files = z.array(fileSummarySchema).parse(res.body);
+    const total = Object.values(scan.counts).reduce((a, b) => a + b, 0);
+    expect(files.reduce((n, f) => n + f.total, 0)).toBe(total);
+    for (const f of files) expect(f.critical + f.high + f.medium + f.low + f.info).toBe(f.total);
+    // Severity weights (critical 10, high 5, medium 2, low 0.5, info 0):
+    // src/pricing.ts 3×medium = 6; tests/pricing.test.ts high + low = 5.5; "." high + info = 5.
+    expect(files.slice(0, 3).map((f) => f.file)).toEqual([
+      "src/pricing.ts",
+      "tests/pricing.test.ts",
+      ".",
+    ]);
+    expect((await call("/api/scans/nope/files")).status).toBe(404);
   });
 });
 

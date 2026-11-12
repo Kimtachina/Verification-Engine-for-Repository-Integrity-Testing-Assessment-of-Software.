@@ -1,4 +1,5 @@
 import {
+  type FileSummary,
   type Finding,
   type FindingPage,
   type FindingQuery,
@@ -94,6 +95,32 @@ export class ScanRepository {
       )
       .all()
       .map((r) => findingSchema.parse(r.data));
+  }
+
+  /**
+   * Findings per file, the file most worth fixing first: ordered by the same severity
+   * weights the scores use, then by name.
+   */
+  fileSummaries(scanId: string): FileSummary[] {
+    const bySeverity = (s: string) =>
+      sql<number>`sum(case when ${findings.severity} = ${s} then 1 else 0 end)`;
+    const weighted = sql`sum(case ${findings.severity}
+      when 'critical' then 10 when 'high' then 5 when 'medium' then 2 when 'low' then 0.5 else 0 end)`;
+    return this.db
+      .select({
+        file: findings.file,
+        total: count(),
+        critical: bySeverity("critical"),
+        high: bySeverity("high"),
+        medium: bySeverity("medium"),
+        low: bySeverity("low"),
+        info: bySeverity("info"),
+      })
+      .from(findings)
+      .where(eq(findings.scanId, scanId))
+      .groupBy(findings.file)
+      .orderBy(desc(weighted), asc(findings.file))
+      .all();
   }
 
   queryFindings(scanId: string, query: FindingQuery): FindingPage {
