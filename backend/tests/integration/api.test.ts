@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   apiErrorSchema,
@@ -15,6 +17,8 @@ import {
   settingsOverridesSchema,
   settingsSchema,
   thresholdsSchema,
+  UPLOAD_LIMITS,
+  uploadSchema,
 } from "@veritas/shared";
 import { z } from "zod";
 import { createApp } from "../../src/app";
@@ -23,6 +27,7 @@ import { INTERRUPTED_ERROR, ScanRepository } from "../../src/db/scan-repository"
 import { runScan } from "../../src/engine/pipeline";
 import { ScanRunner, type ScanRunnerDeps } from "../../src/services/scan-runner";
 import { SettingsService } from "../../src/services/settings-service";
+import { KEEP_UPLOADS, safeName, UploadStore } from "../../src/services/upload-store";
 import { FIXTURES } from "../helpers";
 
 const SAMPLE = join(FIXTURES, "sample-project");
@@ -34,6 +39,8 @@ let db: Db;
 let repo: ScanRepository;
 let runner: ScanRunner;
 let settings: SettingsService;
+let uploads: UploadStore;
+let uploadsDir: string;
 let app: ReturnType<typeof createApp>;
 
 function setup(runScanImpl?: ScanRunnerDeps["runScan"], loadConfig?: ScanRunnerDeps["loadConfig"]) {
@@ -41,12 +48,15 @@ function setup(runScanImpl?: ScanRunnerDeps["runScan"], loadConfig?: ScanRunnerD
   repo = new ScanRepository(db);
   // The fixture has no veritas.config.ts; point the root at it and keep scans fast.
   settings = new SettingsService(db, SAMPLE, { root: SAMPLE, dimensions: [...FAST.dimensions] });
+  uploadsDir = mkdtempSync(join(tmpdir(), "veritas-uploads-"));
+  uploads = new UploadStore(uploadsDir);
   runner = new ScanRunner({
     repo,
     loadConfig: loadConfig ?? settings.loadConfig,
+    uploadRoot: (id) => uploads.rootOf(id),
     ...(runScanImpl && { runScan: runScanImpl }),
   });
-  app = createApp({ repo, runner, settings, root: SAMPLE, corsOrigins: [ORIGIN] });
+  app = createApp({ repo, runner, settings, uploads, root: SAMPLE, corsOrigins: [ORIGIN] });
 }
 
 async function call(path: string, init: RequestInit = {}) {
@@ -532,5 +542,101 @@ describe("/api/settings", () => {
     const configurable = Object.keys(thresholdsSchema.shape).sort();
     const overridable = Object.keys(settingsOverridesSchema.shape.thresholds.unwrap().shape).sort();
     expect(overridable).toEqual(configurable);
+  });
+});
+
+describe("POST /api/uploads", () => {
+  function form(files: Record<string, string | Blob>, name = "my-app") {
+    const fd = new FormData();
+    for (const [path, content] of Object.entries(files)) {
+      fd.append("files", typeof content === "string" ? new Blob([content]) : content, path);
+    }
+    fd.append("name", name);
+    return fd;
+  }
+  const upload = (fd: FormData) => call("/api/uploads", { method: "POST", body: fd });
+
+  test("stores the folder and a scan of it reports on its files", async () => {
+    const res = await upload(
+      form({
+        "src/pricing.ts": readFileSync(join(SAMPLE, "src/pricing.ts"), "utf-8"),
+        "src/empty.ts": "",
+        "README.md": "# my app",
+      }),
+    );
+    expect(res.status).toBe(201);
+    const meta = uploadSchema.parse(res.body);
+    expect(meta).toMatchObject({ name: "my-app", files: 3 });
+
+    const scan = await completedScan({ uploadId: meta.id });
+    expect(scan.root).toBe(join(uploadsDir, meta.id, "my-app"));
+    const page = findingPageSchema.parse(
+      (await call(`/api/scans/${scan.id}/findings?limit=500`)).body,
+    );
+    expect(page.items.map((f) => f.ruleId)).toContain("complexity/cyclomatic");
+    expect(page.items.map((f) => f.file)).toContain("src/empty.ts");
+  });
+
+  test.each([
+    ["parent traversal", "../escape.ts"],
+    ["deep traversal", "src/../../escape.ts"],
+    ["absolute path", "/tmp/escape.ts"],
+    ["windows path", "src\\escape.ts"],
+    ["drive letter", "C:/escape.ts"],
+    ["empty segment", "src//a.ts"],
+    ["dot segment", "./a.ts"],
+  ])("rejects %s and writes nothing", async (_name, path) => {
+    const res = await upload(form({ "ok.ts": "x", [path]: "pwned" }));
+    expect(res.status).toBe(400);
+    expect(readdirSync(uploadsDir)).toEqual([]);
+    expect(existsSync(join(uploadsDir, "..", "escape.ts"))).toBe(false);
+  });
+
+  test("413 above the per-file limit; 400 for no files or not multipart", async () => {
+    const big = new Blob([new Uint8Array(UPLOAD_LIMITS.maxFileBytes + 1)]);
+    expect((await upload(form({ "big.bin": big }))).status).toBe(413);
+    expect((await upload(form({}))).status).toBe(400);
+    const json = await call("/api/uploads", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+    expect(json.status).toBe(400);
+    expect(readdirSync(uploadsDir)).toEqual([]);
+  });
+
+  test("duplicate paths are rejected", async () => {
+    const fd = new FormData();
+    fd.append("files", new Blob(["a"]), "a.ts");
+    fd.append("files", new Blob(["b"]), "a.ts");
+    expect((await upload(fd)).status).toBe(400);
+  });
+
+  test("scanning an unknown or malformed upload id", async () => {
+    expect((await post("/api/scans", { uploadId: crypto.randomUUID() })).status).toBe(404);
+    expect((await post("/api/scans", { uploadId: "../../etc" })).status).toBe(400);
+  });
+
+  test(`only the ${KEEP_UPLOADS} newest uploads are kept`, async () => {
+    const ids: string[] = [];
+    for (let i = 0; i < KEEP_UPLOADS + 2; i++) {
+      ids.push(
+        uploadSchema.parse((await upload(form({ "a.ts": `export const n = ${i};` }))).body).id,
+      );
+      await Bun.sleep(2);
+    }
+    expect(readdirSync(uploadsDir).sort()).toEqual(ids.slice(2).sort());
+    expect(await uploads.rootOf(ids[0]!)).toBeNull();
+  });
+
+  test.each([
+    ["my-app", "my-app"],
+    ["../../etc", "-..-etc"],
+    ["...", "project"],
+    ["", "project"],
+    ["a/b", "a-b"],
+    ["โปรเจกต์", "โปรเจกต์"],
+  ])("safeName(%p) = %p", (raw, expected) => {
+    expect(safeName(raw)).toBe(expected);
   });
 });

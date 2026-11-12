@@ -25,9 +25,24 @@ Version, scan root, each external tool (`available`, `source`: `bundled` or `pat
 id of the running scan, if any.
 
 ### `POST /api/scans` → `202 Scan`
-Body (`StartScanRequest`, all optional): `{ dimensions?: Dimension[], failOn?: Severity, minScore?: number }`.
+Body (`StartScanRequest`, all optional): `{ dimensions?: Dimension[], failOn?: Severity, minScore?: number, uploadId?: string }`. With `uploadId`, the uploaded folder is scanned instead of the configured root (404 if it no longer exists).
 Returns the scan with `status: "running"`; it continues in the background. One scan runs at a
 time: a second request gets 409 until the first finishes.
+
+### `POST /api/uploads` → `201 Upload`
+Uploads a project folder as `multipart/form-data`: one `files` part per file, whose
+filename is the path inside the folder (`src/app.ts`), plus a `name` field. Returns
+`{ id, name, files, bytes, createdAt }`. Start a scan of it with
+`POST /api/scans { "uploadId": "<id>" }`.
+
+- Every path is validated before anything is written: relative, forward slashes, no `.`,
+  `..` or empty segments, no control characters. Any unsafe or duplicate path rejects the
+  whole upload (400) and nothing is kept.
+- Limits: 20,000 files, 10 MB per file, 200 MB in total (413 when exceeded).
+- Stored under `<config dir>/.veritas/uploads/<id>/<name>/`; only the 10 newest uploads are
+  kept. Scans refer to uploads by id, so clients still cannot scan an arbitrary path.
+- The dashboard leaves out `node_modules`, `.git`, `dist`, build output and caches before
+  uploading, but keeps lockfiles for the dependencies dimension.
 
 ### `GET /api/scans?limit=50&offset=0` → `Scan[]`
 Newest first. `limit` 1–200.

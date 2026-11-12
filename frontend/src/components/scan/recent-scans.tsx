@@ -29,7 +29,10 @@ export function RecentScans({ scans }: { scans: Scan[] }) {
                 {scan.grade ?? ""}
               </span>
               <span className="min-w-40 flex-1">
-                <span className="block text-sm">{formatDateTime(scan.startedAt)}</span>
+                <span className="block text-sm">
+                  <span className="font-medium">{projectName(scan.root)}</span>
+                  <span className="text-muted-foreground"> · {formatDateTime(scan.startedAt)}</span>
+                </span>
                 <span className="block text-xs text-muted-foreground">
                   {scan.status === "running"
                     ? "กำลังสแกน"
@@ -73,4 +76,9 @@ export function ScanStatusBadge({ scan }: { scan: Scan }) {
       ไม่ผ่านเกณฑ์
     </Badge>
   );
+}
+
+/** Last folder of the scanned path: the project name, for uploads and code/ alike. */
+export function projectName(root: string): string {
+  return root.split(/[\\/]/).filter(Boolean).at(-1) ?? root;
 }

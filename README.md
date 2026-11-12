@@ -2,7 +2,7 @@
 
 Verification Engine for Repository Integrity, Testing & Assessment of Software
 
-วางโค้ดลงใน `code/` แล้ว VERITAS จะตรวจคุณภาพ 10 มิติ ให้คะแนน เกรด และชี้บรรทัดที่มีปัญหา
+วางโค้ดลงใน `code/` หรือกด "อัปโหลดโฟลเดอร์" ในหน้าเว็บ แล้ว VERITAS จะตรวจคุณภาพ 10 มิติ ให้คะแนน เกรด และชี้บรรทัดที่มีปัญหา
 โค้ดที่ตรวจจะไม่ถูกรัน ติดตั้ง หรือ build — วิเคราะห์แบบ static เท่านั้น
 
 แผนเต็ม: [docs/PLAN.md](docs/PLAN.md)

@@ -2,6 +2,7 @@ export * from "./constants/dimension";
 export * from "./constants/grade";
 export * from "./constants/language";
 export * from "./constants/severity";
+export * from "./constants/upload";
 export * from "./schemas/api.schema";
 export * from "./schemas/config.schema";
 export * from "./schemas/finding.schema";

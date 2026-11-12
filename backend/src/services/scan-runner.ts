@@ -30,6 +30,8 @@ export interface ScanRunnerDeps {
   /** Loads veritas.config.ts fresh for each scan, so edits apply without a restart. */
   loadConfig: (overrides: ConfigInput) => Promise<ResolvedConfig>;
   runScan?: (config: ResolvedConfig, opts: RunScanOptions) => Promise<ScanOutcome>;
+  /** Folder of an uploaded project, or null if the id is unknown. */
+  uploadRoot?: (uploadId: string) => Promise<string | null>;
   now?: () => Date;
 }
 
@@ -60,7 +62,14 @@ export class ScanRunner {
         `A scan is already running (${this.active.id}); wait for it to finish.`,
       );
     }
-    const config = await this.deps.loadConfig(toOverrides(request));
+    const overrides = toOverrides(request);
+    if (request.uploadId) {
+      const root = await this.deps.uploadRoot?.(request.uploadId);
+      if (!root)
+        throw new HttpError(404, "Upload not found; it may have been replaced by newer uploads.");
+      overrides.root = root;
+    }
+    const config = await this.deps.loadConfig(overrides);
     // Re-check: another request may have started a scan while the config was loading.
     if (this.active) throw new HttpError(409, "A scan is already running; wait for it to finish.");
 

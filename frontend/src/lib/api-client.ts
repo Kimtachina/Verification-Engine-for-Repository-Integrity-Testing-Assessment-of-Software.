@@ -18,6 +18,8 @@ import {
   scanComparisonSchema,
   scanSchema,
   settingsSchema,
+  type Upload,
+  uploadSchema,
 } from "@veritas/shared";
 import { type ZodType, z } from "zod";
 
@@ -92,6 +94,41 @@ export function createApiClient(baseUrl: string = API_BASE) {
     settings: (): Promise<Settings> => request("/api/settings", settingsSchema),
     saveSettings: (overrides: SettingsOverrides): Promise<Settings> =>
       request("/api/settings", settingsSchema, { method: "PUT", body: JSON.stringify(overrides) }),
+    /**
+     * Uploads a chosen folder. XMLHttpRequest rather than fetch, because only XHR reports
+     * upload progress. Each file's multipart filename is its path inside the folder.
+     */
+    uploadFolder: (
+      name: string,
+      files: ReadonlyArray<{ file: Blob; path: string }>,
+      onProgress: (fraction: number) => void,
+    ): Promise<Upload> =>
+      new Promise((resolve, reject) => {
+        const form = new FormData();
+        form.append("name", name);
+        for (const f of files) form.append("files", f.file, f.path);
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", new URL("/api/uploads", baseUrl));
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) onProgress(e.loaded / e.total);
+        };
+        xhr.onerror = () => reject(new ApiError(`Cannot reach the VERITAS API at ${baseUrl}`, 0));
+        xhr.onload = () => {
+          let body: unknown = null;
+          try {
+            body = JSON.parse(xhr.responseText);
+          } catch {}
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const parsed = uploadSchema.safeParse(body);
+            if (parsed.success) resolve(parsed.data);
+            else reject(new ApiError("Unexpected response from /api/uploads", 502));
+          } else {
+            const parsed = apiErrorSchema.safeParse(body);
+            reject(new ApiError(parsed.success ? parsed.data.error : xhr.statusText, xhr.status));
+          }
+        };
+        xhr.send(form);
+      }),
     /** For <a download> and EventSource, which need a URL rather than a fetch. */
     reportUrl: (id: string, format: ReportFormat = "json") =>
       new URL(`/api/scans/${encodeURIComponent(id)}/report?format=${format}`, baseUrl).toString(),

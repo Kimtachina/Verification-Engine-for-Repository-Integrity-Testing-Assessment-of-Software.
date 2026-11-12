@@ -9,12 +9,14 @@ import { parseInput } from "./routes/validate";
 import { HttpError, notFound } from "./services/http-error";
 import type { ScanRunner } from "./services/scan-runner";
 import type { SettingsService } from "./services/settings-service";
+import type { UploadedFile, UploadStore } from "./services/upload-store";
 import { VERITAS_VERSION } from "./version";
 
 export interface AppDeps {
   repo: ScanRepository;
   runner: ScanRunner;
   settings: SettingsService;
+  uploads: UploadStore;
   /** Absolute path the server scans, reported by /api/health. */
   root: string;
   /** Origins allowed to call the API from a browser (the dashboard). */
@@ -25,7 +27,7 @@ export interface AppDeps {
  * The HTTP API. Built as a factory so tests call `app.handle(request)` directly,
  * without opening a port.
  */
-export function createApp({ repo, runner, settings, root, corsOrigins }: AppDeps) {
+export function createApp({ repo, runner, settings, uploads, root, corsOrigins }: AppDeps) {
   return (
     new Elysia()
       .use(cors({ origin: corsOrigins, methods: ["GET", "POST", "PUT"] }))
@@ -54,6 +56,31 @@ export function createApp({ repo, runner, settings, root, corsOrigins }: AppDeps
         }),
       )
       .use(scanRoutes({ repo, runner }))
+      /**
+       * Upload a folder as multipart form data: one "files" part per file, whose filename is
+       * the path inside the folder, plus a "name" field. Parsed by hand (parse: "none") so
+       * every path is validated before anything touches the disk.
+       */
+      .post(
+        "/api/uploads",
+        async ({ request, set }) => {
+          const form = await request.formData().catch(() => null);
+          if (!form) throw new HttpError(400, 'Expected multipart/form-data with "files" parts');
+          // Checked at runtime: Bun's and undici's FormData typings disagree on File.
+          const files: UploadedFile[] = form
+            .getAll("files")
+            .flatMap((part: unknown) =>
+              part instanceof Blob && "name" in part && typeof part.name === "string"
+                ? [{ path: part.name, file: part }]
+                : [],
+            );
+          const name = form.get("name");
+          const upload = await uploads.save(typeof name === "string" ? name : "project", files);
+          set.status = 201;
+          return upload;
+        },
+        { parse: "none" },
+      )
       /** Dashboard settings layered over veritas.config.ts; apply to the next scan. */
       .get("/api/settings", () => settings.describe())
       .put("/api/settings", ({ body }) =>

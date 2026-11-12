@@ -8,6 +8,8 @@ import { dimensionSchema, severitySchema } from "./finding.schema";
 export const DEFAULT_IGNORE = [
   "**/node_modules/**",
   "**/.git/**",
+  // VERITAS's own database and uploads, in case the scan root contains them.
+  "**/.veritas/**",
   "**/dist/**",
   "**/build/**",
   "**/out/**",

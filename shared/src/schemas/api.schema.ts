@@ -8,6 +8,8 @@ export const startScanRequestSchema = z
     dimensions: z.array(dimensionSchema).min(1).optional(),
     failOn: severitySchema.optional(),
     minScore: z.number().min(0).max(100).optional(),
+    /** Scan an uploaded folder (from POST /api/uploads) instead of the configured root. */
+    uploadId: z.uuid().optional(),
   })
   .strict();
 export type StartScanRequest = z.infer<typeof startScanRequestSchema>;
@@ -139,3 +141,14 @@ export const settingsSchema = z.object({
   configPath: z.string().nullable(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
+
+/** A folder uploaded from the dashboard, stored by the server until pruned. */
+export const uploadSchema = z.object({
+  id: z.uuid(),
+  /** The uploaded folder's name, as shown to the user. */
+  name: z.string().min(1),
+  files: z.int().nonnegative(),
+  bytes: z.int().nonnegative(),
+  createdAt: z.iso.datetime(),
+});
+export type Upload = z.infer<typeof uploadSchema>;
