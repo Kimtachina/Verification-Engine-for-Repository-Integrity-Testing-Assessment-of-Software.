@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useFindings } from "@/hooks/queries";
+import { useFindings, useScan } from "@/hooks/queries";
 import {
   type FindingFilters,
   filtersFromParams,
@@ -33,6 +33,7 @@ import {
 } from "@/lib/finding-filters";
 import { dimensionLabel, formatLocation, formatNumber, severityLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { CopyFindingsButton, CopyFindingsByDimension } from "./copy-findings";
 import { SEVERITY_CLASSES, SeverityBadge } from "./severity-badge";
 
 const ALL = "all";
@@ -43,7 +44,9 @@ export function FindingsExplorer({ scanId }: { scanId: string }) {
   const pathname = usePathname();
   const params = useSearchParams();
   const filters = filtersFromParams(new URLSearchParams(params.toString()));
-  const { data, error, isLoading, isFetching } = useFindings(scanId, filtersToQuery(filters));
+  const query = filtersToQuery(filters);
+  const { data, error, isLoading, isFetching } = useFindings(scanId, query);
+  const { data: scan } = useScan(scanId);
 
   const update = (change: Partial<FindingFilters>) => {
     // Any filter change starts again from page 1; only explicit paging keeps the page.
@@ -76,6 +79,8 @@ export function FindingsExplorer({ scanId }: { scanId: string }) {
 
   return (
     <section className="space-y-4" aria-label="ปัญหาที่พบ">
+      {scan && <CopyFindingsByDimension scan={scan} />}
+
       <div className="flex flex-wrap items-center gap-2">
         <fieldset className="flex flex-wrap gap-1.5">
           <legend className="sr-only">กรองตามความรุนแรง</legend>
@@ -157,6 +162,15 @@ export function FindingsExplorer({ scanId }: { scanId: string }) {
                 <X className="size-3" />
               </button>
             </span>
+          )}
+          {hasFilters && scan && total > 0 && (
+            <CopyFindingsButton
+              scan={scan}
+              query={query}
+              title="VERITAS — ปัญหาตามตัวกรอง"
+              label="คัดลอกตามตัวกรอง"
+              count={total}
+            />
           )}
           {hasFilters && (
             <Button

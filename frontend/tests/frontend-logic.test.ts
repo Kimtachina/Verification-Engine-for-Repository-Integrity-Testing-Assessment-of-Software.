@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { AnalyzerRun, Scan, ScanEvent } from "@veritas/shared";
+import type { AnalyzerRun, Finding, FindingQueryInput, Scan, ScanEvent } from "@veritas/shared";
 import { toQueryString } from "../src/lib/api-client";
+import { fetchAllFindings, formatFindingsForCopy } from "../src/lib/finding-copy";
 import {
   filtersFromParams,
   filtersToParams,
@@ -116,5 +117,70 @@ describe("format helpers", () => {
     [{ file: "src/a.ts", startLine: 4, endLine: 9 }, "src/a.ts:4–9"],
   ])("formatLocation(%p) = %p", (finding, expected) => {
     expect(formatLocation(finding)).toBe(expected);
+  });
+});
+
+describe("copying findings", () => {
+  const finding = (over: Partial<Finding>): Finding => ({
+    id: `s-${"a".repeat(32)}`,
+    fingerprint: "a".repeat(32),
+    dimension: "security",
+    severity: "high",
+    ruleId: "rule.x",
+    message: "Problem",
+    file: "src/a.ts",
+    language: "typescript",
+    source: "semgrep",
+    ...over,
+  });
+
+  test("groups by severity, worst first, with location, rule and fix", () => {
+    const text = formatFindingsForCopy(
+      [
+        finding({ severity: "low", message: "Minor" }),
+        finding({ severity: "critical", message: "Bad", startLine: 3, suggestion: "Fix it" }),
+      ],
+      { title: "VERITAS — ความปลอดภัย", project: "my-app" },
+    );
+    expect(text.startsWith("# VERITAS — ความปลอดภัย\n")).toBe(true);
+    expect(text).toContain("จำนวน: 2 ปัญหา");
+    expect(text.indexOf("## วิกฤต (1)")).toBeLessThan(text.indexOf("## ต่ำ (1)"));
+    expect(text).toContain(
+      "### 1. Bad\n- ตำแหน่ง: `src/a.ts:3`\n- กฎ: `rule.x` (semgrep)\n- วิธีแก้: Fix it",
+    );
+    expect(text).toContain("### 2. Minor");
+  });
+
+  test("a snippet with backticks cannot break out of its fence", () => {
+    const text = formatFindingsForCopy([finding({ snippet: "const a = ```x```;\n" })], {
+      title: "t",
+      project: "p",
+    });
+    expect(text).toContain("````typescript\nconst a = ```x```;\n````");
+  });
+
+  test("says when only part of a large result was copied", () => {
+    const text = formatFindingsForCopy([finding({})], { title: "t", project: "p", total: 5000 });
+    expect(text).toContain("จำนวน: 5000 ปัญหา");
+    expect(text).toContain("(คัดลอก 1 รายการแรก)");
+  });
+
+  test("fetchAllFindings pages through 500 at a time until it has every finding", async () => {
+    const calls: FindingQueryInput[] = [];
+    const all = Array.from({ length: 2600 }, (_, i) => finding({ message: `m${i}` }));
+    const { items, total } = await fetchAllFindings(
+      async (q) => {
+        calls.push(q);
+        const offset = Number(q.offset ?? 0);
+        const limit = Number(q.limit ?? 50);
+        return { items: all.slice(offset, offset + limit), total: all.length, limit, offset };
+      },
+      { dimension: ["security"] },
+    );
+    expect(total).toBe(2600);
+    expect(items).toHaveLength(2600);
+    expect(items.at(-1)?.message).toBe("m2599");
+    expect(calls.map((c) => c.offset)).toEqual([0, 500, 1000, 1500, 2000, 2500]);
+    expect(calls.every((c) => c.limit === 500 && String(c.dimension) === "security")).toBe(true);
   });
 });
