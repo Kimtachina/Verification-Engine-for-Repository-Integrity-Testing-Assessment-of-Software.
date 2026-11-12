@@ -76,8 +76,11 @@ export async function loadConfig(
   return resolveConfig(merged, dirname(configPath), existsSync(configPath) ? configPath : null);
 }
 
-/** Shallow merge with one level of nesting for the object-valued sections. */
-function mergeConfig(base: unknown, overrides: ConfigInput): unknown {
+/**
+ * Shallow merge with one level of nesting for the object-valued sections: `overrides`
+ * wins field by field inside thresholds, gate and weights; other fields are replaced whole.
+ */
+export function mergeConfig(base: unknown, overrides: ConfigInput): unknown {
   if (typeof base !== "object" || base === null) return base;
   const b = base as Record<string, unknown>;
   const nested = ["thresholds", "gate", "weights"] as const;

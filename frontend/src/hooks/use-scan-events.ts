@@ -36,6 +36,7 @@ export function useScanEvents(scanId: string | null) {
         source.close();
         void client.invalidateQueries({ queryKey: keys.scan(scanId) });
         void client.invalidateQueries({ queryKey: keys.scans });
+        void client.invalidateQueries({ queryKey: keys.history });
         void client.invalidateQueries({ queryKey: keys.health });
         void client.invalidateQueries({ queryKey: ["findings", scanId] });
         void client.invalidateQueries({ queryKey: keys.files(scanId) });

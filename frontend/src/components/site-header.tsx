@@ -1,5 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { SiteNav } from "./site-nav";
 
 export function SiteHeader() {
   return (
@@ -9,9 +10,10 @@ export function SiteHeader() {
           <ShieldCheck className="size-5" aria-hidden />
           <span>VERITAS</span>
         </Link>
-        <span className="hidden text-sm text-muted-foreground sm:inline">
+        <span className="hidden text-sm text-muted-foreground md:inline">
           ตรวจคุณภาพโค้ดแบบละเอียด 10 มิติ
         </span>
+        <SiteNav />
       </div>
     </header>
   );

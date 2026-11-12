@@ -1,18 +1,17 @@
 "use client";
 
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ApiErrorAlert, LoadingBlock } from "@/components/api-state";
 import { SeverityCountsRow } from "@/components/findings/severity-badge";
 import { DimensionGrid } from "@/components/scan/dimension-grid";
 import { ScanStatusBadge } from "@/components/scan/recent-scans";
+import { ReportDownloads } from "@/components/scan/report-downloads";
 import { ScanProgressCard } from "@/components/scan/scan-progress-card";
 import { ScoreRing } from "@/components/scan/score-ring";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useScan } from "@/hooks/queries";
-import { api } from "@/lib/api-client";
 import { findingsHref } from "@/lib/finding-filters";
 import { formatDateTime, formatDuration, formatNumber, scanDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -43,14 +42,7 @@ export function ScanHeader({ scanId }: { scanId: string }) {
           </p>
           <p className="break-all font-mono text-xs text-muted-foreground">{scan.root}</p>
         </div>
-        {scan.status === "completed" && (
-          <Button asChild variant="outline">
-            <a href={api.reportUrl(scan.id)} download>
-              <Download aria-hidden />
-              ดาวน์โหลดรายงาน JSON
-            </a>
-          </Button>
-        )}
+        {scan.status === "completed" && <ReportDownloads scanId={scan.id} />}
       </div>
 
       {scan.status === "running" || scan.status === "queued" ? (

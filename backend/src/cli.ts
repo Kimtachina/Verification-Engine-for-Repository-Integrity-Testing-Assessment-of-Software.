@@ -2,10 +2,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import type { ConfigInput } from "@veritas/shared";
+import type { ConfigInput, ReportFormat } from "@veritas/shared";
 import { ConfigError, loadConfig } from "./config/load-config";
 import { runScan } from "./engine/pipeline";
 import { buildReport } from "./reports/json-report";
+import { formatForPath, renderReport } from "./reports/render-report";
 import { renderTerminalReport } from "./reports/terminal-report";
 import { VERITAS_VERSION } from "./version";
 
@@ -22,6 +23,8 @@ Options:
   --fail-on <severity>  Fail the gate on findings at or above: critical|high|medium|low|info
   --min-score <n>       Fail the gate when the overall score is below n (0-100)
   --json <file>         Write the full report as JSON
+  --report <file>       Write a report; format from the extension: .json .md .html .sarif
+                        (repeatable, e.g. --report out.html --report out.sarif)
   --top <n>             Number of findings to print (default 20)
   --all                 Print every finding
   --no-color            Disable colours (also honoured: NO_COLOR)
@@ -69,19 +72,36 @@ export async function main(argv: string[]): Promise<number> {
 
 async function scanCommand(values: Values): Promise<number> {
   const top = parseTop(values);
+  // Checked before scanning, so a typo in a file name does not waste a whole scan.
+  const targets = reportTargets(values);
   const config = await loadConfig(resolve(values["config-dir"] ?? "."), configOverrides(values));
   const outcome = await runScan(config);
 
   const color = !values["no-color"] && !process.env.NO_COLOR && Boolean(process.stdout.isTTY);
   console.log(renderTerminalReport(outcome.scan, outcome.findings, { color, top }));
 
-  if (values.json) {
-    const path = resolve(values.json);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, `${JSON.stringify(buildReport(outcome), null, 2)}\n`);
-    console.log(`\nJSON report written to ${path}`);
+  if (targets.length > 0) {
+    const report = buildReport(outcome);
+    for (const { path, format } of targets) {
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, renderReport(report, format).body);
+      console.log(`${format.toUpperCase()} report written to ${path}`);
+    }
   }
   return outcome.scan.gate?.passed === false ? EXIT.gateFailed : EXIT.passed;
+}
+
+function reportTargets(values: Values): Array<{ path: string; format: ReportFormat }> {
+  const targets: Array<{ path: string; format: ReportFormat }> = [];
+  if (values.json) targets.push({ path: resolve(values.json), format: "json" });
+  for (const target of values.report ?? []) {
+    const format = formatForPath(target);
+    if (!format) {
+      throw new UsageError(`Unknown report extension: ${target} (use .json, .md, .html or .sarif)`);
+    }
+    targets.push({ path: resolve(target), format });
+  }
+  return targets;
 }
 
 function parseTop(values: Values): number {
@@ -133,6 +153,7 @@ function parse(argv: string[]) {
       "fail-on": { type: "string" },
       "min-score": { type: "string" },
       json: { type: "string" },
+      report: { type: "string", multiple: true },
       top: { type: "string" },
       all: { type: "boolean" },
       "no-color": { type: "boolean" },

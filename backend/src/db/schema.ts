@@ -49,3 +49,10 @@ export const findings = sqliteTable(
     index("findings_scan_dimension_idx").on(t.scanId, t.dimension),
   ],
 );
+
+/** Key/value store for small server-side state; "overrides" holds the dashboard settings. */
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value", { mode: "json" }).notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

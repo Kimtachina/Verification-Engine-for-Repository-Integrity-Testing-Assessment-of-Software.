@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import {
   apiErrorSchema,
-  type ConfigInput,
   fileSummarySchema,
   findingPageSchema,
   findingSchema,
@@ -13,34 +12,41 @@ import {
   scanComparisonSchema,
   scanEventSchema,
   scanSchema,
+  settingsOverridesSchema,
+  settingsSchema,
+  thresholdsSchema,
 } from "@veritas/shared";
 import { z } from "zod";
 import { createApp } from "../../src/app";
-import { openDatabase } from "../../src/db/client";
+import { type Db, openDatabase } from "../../src/db/client";
 import { INTERRUPTED_ERROR, ScanRepository } from "../../src/db/scan-repository";
 import { runScan } from "../../src/engine/pipeline";
 import { ScanRunner, type ScanRunnerDeps } from "../../src/services/scan-runner";
-import { configFor, FIXTURES } from "../helpers";
+import { SettingsService } from "../../src/services/settings-service";
+import { FIXTURES } from "../helpers";
 
 const SAMPLE = join(FIXTURES, "sample-project");
 /** Built-in dimensions only: fast and identical on every machine. */
 const FAST = { dimensions: ["integrity", "complexity", "testing"] } as const;
 const ORIGIN = "http://localhost:3000";
 
+let db: Db;
 let repo: ScanRepository;
 let runner: ScanRunner;
+let settings: SettingsService;
 let app: ReturnType<typeof createApp>;
 
 function setup(runScanImpl?: ScanRunnerDeps["runScan"], loadConfig?: ScanRunnerDeps["loadConfig"]) {
-  repo = new ScanRepository(openDatabase(":memory:").db);
+  db = openDatabase(":memory:").db;
+  repo = new ScanRepository(db);
+  // The fixture has no veritas.config.ts; point the root at it and keep scans fast.
+  settings = new SettingsService(db, SAMPLE, { root: SAMPLE, dimensions: [...FAST.dimensions] });
   runner = new ScanRunner({
     repo,
-    loadConfig:
-      loadConfig ??
-      (async (overrides: ConfigInput) => configFor(SAMPLE, { ...FAST, ...overrides })),
+    loadConfig: loadConfig ?? settings.loadConfig,
     ...(runScanImpl && { runScan: runScanImpl }),
   });
-  app = createApp({ repo, runner, root: SAMPLE, corsOrigins: [ORIGIN] });
+  app = createApp({ repo, runner, settings, root: SAMPLE, corsOrigins: [ORIGIN] });
 }
 
 async function call(path: string, init: RequestInit = {}) {
@@ -355,9 +361,22 @@ describe("GET /api/scans/:id/report", () => {
     );
   });
 
-  test("other formats are not available yet (501); bad format is 400", async () => {
+  test.each([
+    ["markdown", "text/markdown", ".md", "# VERITAS report"],
+    ["html", "text/html", ".html", "<!doctype html>"],
+    ["sarif", "application/sarif+json", ".sarif", '"version": "2.1.0"'],
+  ])("%s download", async (format, type, ext, start) => {
     const scan = await completedScan();
-    expect((await call(`/api/scans/${scan.id}/report?format=sarif`)).status).toBe(501);
+    const res = await call(`/api/scans/${scan.id}/report?format=${format}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toStartWith(type);
+    expect(res.headers.get("content-disposition")).toEndWith(`${ext}"`);
+    expect(res.headers.get("content-security-policy")).toContain("default-src 'none'");
+    expect(res.text).toContain(start);
+  });
+
+  test("bad format is 400", async () => {
+    const scan = await completedScan();
     expect((await call(`/api/scans/${scan.id}/report?format=pdf`)).status).toBe(400);
   });
 });
@@ -440,5 +459,78 @@ describe("CORS", () => {
     expect(
       (await preflight("https://evil.example")).headers.get("access-control-allow-origin"),
     ).not.toBe("https://evil.example");
+  });
+});
+
+describe("/api/settings", () => {
+  const put = (body: unknown) =>
+    call("/api/settings", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+  test("defaults: no overrides, every dimension weighted", async () => {
+    const res = await call("/api/settings");
+    const s = settingsSchema.parse(res.body);
+    expect(s.overrides).toEqual({});
+    expect(s.effective.root).toBe(SAMPLE);
+    expect(s.effective.thresholds.maxCyclomatic).toBe(10);
+    expect(Object.keys(s.effective.weights)).toHaveLength(10);
+    expect(s.configPath).toBeNull();
+  });
+
+  test("saved overrides change the effective config and the next scan", async () => {
+    const saved = settingsSchema.parse(
+      (
+        await put({
+          gate: { failOn: "low" },
+          thresholds: { maxCyclomatic: 50 },
+          weights: { testing: 0 },
+        })
+      ).body,
+    );
+    expect(saved.effective.gate.failOn).toBe("low");
+    expect(saved.effective.thresholds.maxCyclomatic).toBe(50);
+    expect(saved.effective.thresholds.maxNesting).toBe(4);
+    expect(saved.effective.weights.testing).toBe(0);
+
+    const scan = await completedScan();
+    // failOn "low" fails the gate on the fixture's low-severity empty file.
+    expect(scan.gate?.passed).toBe(false);
+    // maxCyclomatic 50: priceFor (14) is no longer reported.
+    const page = findingPageSchema.parse(
+      (await call(`/api/scans/${scan.id}/findings?q=cyclomatic`)).body,
+    );
+    expect(page.total).toBe(0);
+  });
+
+  test("a scan request's own options win over saved settings", async () => {
+    await put({ gate: { failOn: "low" } });
+    const scan = await completedScan({ failOn: "critical" });
+    expect(scan.gate?.passed).toBe(true);
+  });
+
+  test("settings survive a new service over the same database", async () => {
+    await put({ ignore: ["src/**"] });
+    const again = new SettingsService(db, SAMPLE, { root: SAMPLE });
+    expect(again.overrides()).toEqual({ ignore: ["src/**"] });
+  });
+
+  test.each([
+    ["unknown field", { root: "/etc" }],
+    ["unknown threshold", { thresholds: { speed: 1 } }],
+    ["bad severity", { gate: { failOn: "urgent" } }],
+    ["negative weight", { weights: { lint: -1 } }],
+    ["tiny timeout", { analyzerTimeoutMs: 5 }],
+  ])("400 and nothing saved for %s", async (_name, body) => {
+    expect((await put(body)).status).toBe(400);
+    expect(settings.overrides()).toEqual({});
+  });
+
+  test("the overrides schema covers exactly the configurable thresholds", () => {
+    const configurable = Object.keys(thresholdsSchema.shape).sort();
+    const overridable = Object.keys(settingsOverridesSchema.shape.thresholds.unwrap().shape).sort();
+    expect(overridable).toEqual(configurable);
   });
 });

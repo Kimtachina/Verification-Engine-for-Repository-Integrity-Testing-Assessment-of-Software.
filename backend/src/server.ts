@@ -5,6 +5,7 @@ import { ConfigError, loadConfig } from "./config/load-config";
 import { openDatabase } from "./db/client";
 import { ScanRepository } from "./db/scan-repository";
 import { ScanRunner } from "./services/scan-runner";
+import { SettingsService } from "./services/settings-service";
 import { VERITAS_VERSION } from "./version";
 
 /**
@@ -39,11 +40,9 @@ const repo = new ScanRepository(db);
 const interrupted = repo.failInterruptedScans(new Date().toISOString());
 if (interrupted > 0) console.warn(`Marked ${interrupted} interrupted scan(s) as failed.`);
 
-const runner = new ScanRunner({
-  repo,
-  loadConfig: (overrides) => loadConfig(configDir, overrides),
-});
-const app = createApp({ repo, runner, root, corsOrigins }).listen({ hostname, port });
+const settings = new SettingsService(db, configDir);
+const runner = new ScanRunner({ repo, loadConfig: settings.loadConfig });
+const app = createApp({ repo, runner, settings, root, corsOrigins }).listen({ hostname, port });
 
 console.log(`VERITAS API ${VERITAS_VERSION} on http://${hostname}:${port}`);
 console.log(`  scanning ${root}`);

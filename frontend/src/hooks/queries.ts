@@ -1,7 +1,7 @@
 "use client";
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { FindingQueryInput, StartScanRequest } from "@veritas/shared";
+import type { FindingQueryInput, SettingsOverrides, StartScanRequest } from "@veritas/shared";
 import { api } from "@/lib/api-client";
 
 /** Query keys in one place, so invalidation after a scan cannot miss one. */
@@ -12,6 +12,9 @@ export const keys = {
   findings: (id: string, query: FindingQueryInput) => ["findings", id, query] as const,
   files: (id: string) => ["files", id] as const,
   finding: (id: string) => ["finding", id] as const,
+  history: ["history"] as const,
+  compare: (head: string, base: string) => ["compare", head, base] as const,
+  settings: ["settings"] as const,
 };
 
 export const useHealth = () =>
@@ -40,6 +43,27 @@ export const useFiles = (id: string) =>
 
 export const useFinding = (id: string) =>
   useQuery({ queryKey: keys.finding(id), queryFn: () => api.getFinding(id) });
+
+/** Up to 200 scans, newest first: enough for a meaningful trend without paging. */
+export const useHistory = () =>
+  useQuery({ queryKey: keys.history, queryFn: () => api.listScans(200) });
+
+export const useCompare = (head: string | null, base: string | null) =>
+  useQuery({
+    queryKey: keys.compare(head ?? "", base ?? ""),
+    queryFn: () => api.compare(head ?? "", base ?? ""),
+    enabled: Boolean(head && base),
+  });
+
+export const useSettings = () => useQuery({ queryKey: keys.settings, queryFn: api.settings });
+
+export function useSaveSettings() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (overrides: SettingsOverrides) => api.saveSettings(overrides),
+    onSuccess: (saved) => client.setQueryData(keys.settings, saved),
+  });
+}
 
 export function useStartScan() {
   const client = useQueryClient();

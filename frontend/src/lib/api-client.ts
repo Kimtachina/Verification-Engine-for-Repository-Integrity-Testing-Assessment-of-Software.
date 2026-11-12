@@ -9,11 +9,15 @@ import {
   findingSchema,
   type Health,
   healthSchema,
+  type ReportFormat,
   type Scan,
   type ScanComparison,
+  type Settings,
+  type SettingsOverrides,
   type StartScanRequest,
   scanComparisonSchema,
   scanSchema,
+  settingsSchema,
 } from "@veritas/shared";
 import { type ZodType, z } from "zod";
 
@@ -85,9 +89,12 @@ export function createApiClient(baseUrl: string = API_BASE) {
       ),
     getFinding: (id: string): Promise<Finding> =>
       request(`/api/findings/${encodeURIComponent(id)}`, findingSchema),
+    settings: (): Promise<Settings> => request("/api/settings", settingsSchema),
+    saveSettings: (overrides: SettingsOverrides): Promise<Settings> =>
+      request("/api/settings", settingsSchema, { method: "PUT", body: JSON.stringify(overrides) }),
     /** For <a download> and EventSource, which need a URL rather than a fetch. */
-    reportUrl: (id: string) =>
-      new URL(`/api/scans/${encodeURIComponent(id)}/report?format=json`, baseUrl).toString(),
+    reportUrl: (id: string, format: ReportFormat = "json") =>
+      new URL(`/api/scans/${encodeURIComponent(id)}/report?format=${format}`, baseUrl).toString(),
     eventsUrl: (id: string) =>
       new URL(`/api/scans/${encodeURIComponent(id)}/events`, baseUrl).toString(),
   };

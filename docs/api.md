@@ -17,7 +17,6 @@ Every non-2xx response is `ApiError`: `{ "error": string, "details"?: string }`.
 | 404 | Unknown scan, finding or route |
 | 409 | A scan is already running, or the scan is not completed yet |
 | 500 | Unexpected error. The body never contains paths or stack traces; see the server log |
-| 501 | Report format not implemented yet |
 
 ## Endpoints
 
@@ -62,8 +61,26 @@ fingerprint, so a finding that only moved lines counts as persisting.
 `{ scoreDelta, introduced: Finding[], resolved: Finding[], persistingCount }`. Both scans
 must be completed (409 otherwise).
 
-### `GET /api/scans/:id/report?format=json` → `Report`
-Downloads as `veritas-report-<id>.json`. `markdown`, `html` and `sarif` return 501 until step 6.
+### `GET /api/scans/:id/report?format=json|markdown|html|sarif`
+Downloads as `veritas-report-<id>.<json|md|html|sarif>`.
+
+| Format | Use |
+|---|---|
+| `json` | The complete `Report` (schema in `report.schema.ts`) |
+| `markdown` | Pull requests, wikis, chat |
+| `html` | Self-contained page: no scripts, no external requests, printable |
+| `sarif` | SARIF 2.1.0 for GitHub code scanning, Azure DevOps and IDEs; `partialFingerprints["veritas/v1"]` keeps alerts stable across commits |
+
+Everything from the scanned code is escaped in every format. Responses carry
+`Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'`.
+
+### `GET /api/settings` → `Settings` / `PUT /api/settings` → `Settings`
+Dashboard settings (`SettingsOverrides`): gate, thresholds, weights, ignore list and
+analyzer timeout. They layer as **veritas.config.ts < saved settings < scan request** and
+apply to the next scan started from the dashboard or API. The CLI ignores them, so CI
+results depend only on the repository. `PUT` validates against the full config and saves
+nothing on error; `PUT {}` clears all overrides. `ignore` replaces the file's list.
+The response's `effective` shows exactly what the next scan will use.
 
 ### `GET /api/scans/:id/files` → `FileSummary[]`
 Finding counts per file (`total`, and one count per severity). Sorted by the same

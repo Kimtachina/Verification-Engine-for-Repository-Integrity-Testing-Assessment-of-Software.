@@ -1,14 +1,10 @@
-import {
-  findingQuerySchema,
-  REPORT_FORMATS,
-  reportFormatSchema,
-  startScanRequestSchema,
-} from "@veritas/shared";
+import { findingQuerySchema, reportFormatSchema, startScanRequestSchema } from "@veritas/shared";
 import { Elysia } from "elysia";
 import { z } from "zod";
 import type { ScanRepository } from "../db/scan-repository";
 import { compareScans } from "../engine/compare";
 import { buildReport } from "../reports/json-report";
+import { renderReport } from "../reports/render-report";
 import { HttpError, notFound } from "../services/http-error";
 import type { ScanRunner } from "../services/scan-runner";
 import { scanEventStream } from "./events";
@@ -73,18 +69,20 @@ export function scanRoutes({ repo, runner }: { repo: ScanRepository; runner: Sca
           { scan: head, findings: repo.allFindings(head.id) },
         );
       })
-      .get("/:id/report", ({ params, query, set }) => {
+      .get("/:id/report", ({ params, query }) => {
         const { format } = parseInput(reportQuerySchema, query, "query");
         const scan = requireCompleted(params.id);
-        if (format !== "json") {
-          throw new HttpError(
-            501,
-            `Report format "${format}" is not available yet. Available: json (planned: ${REPORT_FORMATS.join(", ")}).`,
-          );
-        }
-        set.headers["content-disposition"] =
-          `attachment; filename="veritas-report-${scan.id}.json"`;
-        return buildReport({ scan, findings: repo.allFindings(scan.id) });
+        const report = buildReport({ scan, findings: repo.allFindings(scan.id) });
+        const { body, contentType, extension } = renderReport(report, format);
+        return new Response(body, {
+          headers: {
+            "content-type": contentType,
+            "content-disposition": `attachment; filename="veritas-report-${scan.id}.${extension}"`,
+            // The HTML report is self-contained; forbid it from loading or running anything.
+            "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'",
+            "x-content-type-options": "nosniff",
+          },
+        });
       })
   );
 }

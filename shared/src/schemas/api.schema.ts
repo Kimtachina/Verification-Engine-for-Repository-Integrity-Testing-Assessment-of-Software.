@@ -85,3 +85,57 @@ export const fileSummarySchema = z.object({
   info: z.int().nonnegative(),
 });
 export type FileSummary = z.infer<typeof fileSummarySchema>;
+
+/**
+ * Overrides saved from the dashboard's settings page, applied on top of veritas.config.ts
+ * for scans started from the dashboard or API. Every field is optional; an absent field
+ * keeps the file's value. Fields mirror configSchema without its defaults (a test keeps
+ * the two in sync).
+ */
+export const settingsOverridesSchema = z
+  .object({
+    ignore: z.array(z.string().min(1).max(500)).max(200).optional(),
+    thresholds: z
+      .object({
+        maxCyclomatic: z.int().positive().optional(),
+        maxCognitive: z.int().positive().optional(),
+        maxNesting: z.int().positive().optional(),
+        maxFunctionLines: z.int().positive().optional(),
+        maxFileLines: z.int().positive().optional(),
+        maxFileSizeKb: z.int().positive().optional(),
+        minDuplicateLines: z.int().positive().optional(),
+        minTestRatio: z.number().min(0).max(1).optional(),
+        maxDuplicatePercent: z.number().min(0).max(100).optional(),
+        minDocCoverage: z.number().min(0).max(1).optional(),
+      })
+      .strict()
+      .optional(),
+    gate: z
+      .object({
+        failOn: severitySchema.optional(),
+        minScore: z.number().min(0).max(100).optional(),
+      })
+      .strict()
+      .optional(),
+    weights: z.partialRecord(dimensionSchema, z.number().min(0).max(100)).optional(),
+    analyzerTimeoutMs: z.int().min(1_000).max(3_600_000).optional(),
+  })
+  .strict();
+export type SettingsOverrides = z.infer<typeof settingsOverridesSchema>;
+
+export const settingsSchema = z.object({
+  overrides: settingsOverridesSchema,
+  /** What the next dashboard scan will use: file config, then overrides, defaults filled in. */
+  effective: z.object({
+    root: z.string(),
+    ignore: z.array(z.string()),
+    thresholds: z.record(z.string(), z.number()),
+    gate: z.object({ failOn: severitySchema, minScore: z.number() }),
+    /** Every dimension's weight, defaults included. */
+    weights: z.record(dimensionSchema, z.number()),
+    analyzerTimeoutMs: z.number(),
+  }),
+  /** veritas.config.ts in use, or null when running on defaults. */
+  configPath: z.string().nullable(),
+});
+export type Settings = z.infer<typeof settingsSchema>;

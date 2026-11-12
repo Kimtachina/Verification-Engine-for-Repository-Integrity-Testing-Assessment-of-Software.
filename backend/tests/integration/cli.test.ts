@@ -57,6 +57,40 @@ describe("veritas CLI", () => {
     expect(report.scan.score).toBe(100);
   });
 
+  test("--report writes every format by extension, alongside --json", async () => {
+    const paths = ["r/out.json", "r/out.md", "r/out.html", "r/out.sarif"].map((p) => join(out, p));
+    const [json, md, html, sarif] = paths as [string, string, string, string];
+    const { code, stdout } = await cli(
+      "scan",
+      "--root",
+      SAMPLE,
+      "--top",
+      "0",
+      "--json",
+      json,
+      "--report",
+      md,
+      "--report",
+      html,
+      "--report",
+      sarif,
+    );
+    expect(code).toBe(0);
+    expect(
+      reportSchema.parse(JSON.parse(readFileSync(json, "utf-8"))).findings.length,
+    ).toBeGreaterThan(0);
+    expect(readFileSync(md, "utf-8")).toStartWith("# VERITAS report");
+    expect(readFileSync(html, "utf-8")).toStartWith("<!doctype html>");
+    expect(JSON.parse(readFileSync(sarif, "utf-8")).version).toBe("2.1.0");
+    expect(stdout).toContain("SARIF report written to");
+  }, 60_000);
+
+  test("an unknown report extension is rejected before scanning", async () => {
+    const { code, stderr } = await cli("scan", "--root", SAMPLE, "--report", join(out, "x.pdf"));
+    expect(code).toBe(2);
+    expect(stderr).toContain("Unknown report extension");
+  });
+
   test("--dimensions limits what runs", async () => {
     const { stdout } = await cli("scan", "--root", SAMPLE, "--dimensions", "integrity");
     expect(stdout).toContain("Integrity");
