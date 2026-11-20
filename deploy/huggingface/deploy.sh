@@ -31,7 +31,7 @@ git archive HEAD | tar -x -C "$bundle"
 rm -rf "$bundle/backend/tests" "$bundle/frontend/tests" "$bundle/docs" "$bundle/code"
 cp deploy/huggingface/README.md "$bundle/README.md"
 
-hf repo create "$space" --repo-type space --space-sdk docker --private --exist-ok
+hf repos create "$space" --repo-type space --space-sdk docker --private --exist-ok
 hf upload "$space" "$bundle" . --repo-type space --delete "*" \
   --commit-message "Deploy $(git rev-parse --short HEAD)"
 
