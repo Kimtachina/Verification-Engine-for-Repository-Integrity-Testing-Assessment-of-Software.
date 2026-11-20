@@ -30,10 +30,25 @@ export class ScanRepository {
     await this.db.transaction(async (tx) => {
       await tx.update(scans).set(scanRow(scan)).where(eq(scans.id, scan.id));
       await tx.delete(findings).where(eq(findings.scanId, scan.id));
-      for (let i = 0; i < scanFindings.length; i += INSERT_BATCH) {
-        const batch = scanFindings.slice(i, i + INSERT_BATCH).map((f) => findingRow(scan.id, f));
-        await tx.insert(findings).values(batch);
-      }
+      await insertFindings(tx, scan.id, scanFindings);
+    });
+  }
+
+  /**
+   * Adds a finished scan from elsewhere (an older database) with its findings, in one
+   * transaction. Returns false, changing nothing, when a scan with that id already exists,
+   * so an interrupted import can simply be run again.
+   */
+  async importScan(scan: Scan, scanFindings: readonly Finding[]): Promise<boolean> {
+    return this.db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(scans)
+        .values(scanRow(scan))
+        .onConflictDoNothing({ target: scans.id })
+        .returning({ id: scans.id });
+      if (inserted.length === 0) return false;
+      await insertFindings(tx, scan.id, scanFindings);
+      return true;
     });
   }
 
@@ -136,6 +151,17 @@ export class ScanRepository {
       .offset(query.offset);
     const items = rows.map((r) => findingSchema.parse(r.data));
     return { items, total: counted?.n ?? 0, limit: query.limit, offset: query.offset };
+  }
+}
+
+async function insertFindings(
+  tx: Parameters<Parameters<Db["transaction"]>[0]>[0],
+  scanId: string,
+  scanFindings: readonly Finding[],
+): Promise<void> {
+  for (let i = 0; i < scanFindings.length; i += INSERT_BATCH) {
+    const batch = scanFindings.slice(i, i + INSERT_BATCH).map((f) => findingRow(scanId, f));
+    await tx.insert(findings).values(batch);
   }
 }
 

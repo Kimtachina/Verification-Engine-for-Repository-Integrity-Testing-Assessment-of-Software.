@@ -43,6 +43,7 @@ brew install ruff semgrep gitleaks osv-scanner
 1. คัดลอก `.env.example` เป็น `.env`
 2. ใน Supabase dashboard กด **Connect** แล้วเลือก **Session pooler** คัดลอก URI มาใส่ `DATABASE_URL` และใส่รหัสผ่านฐานข้อมูลแทน `[YOUR-PASSWORD]` ถ้าจำไม่ได้ ให้ตั้งใหม่ที่ Project Settings → Database
 3. `bun run api` จะสร้างตารางให้เองตอนเปิดครั้งแรก
+4. ถ้ามีประวัติสแกนจากเวอร์ชันที่ใช้ SQLite (`.veritas/veritas.db`) ย้ายขึ้น Supabase ด้วย `bun run db:import-sqlite` รันซ้ำได้ สแกนที่ย้ายแล้วจะถูกข้าม ไฟล์เดิมไม่ถูกแก้
 
 ตารางอยู่ใน schema `veritas` ซึ่งไม่เปิดผ่าน REST API ของ Supabase และเปิด RLS ไว้ เข้าถึงได้ทาง backend ของ VERITAS เท่านั้น ถ้าไม่ตั้ง `DATABASE_URL` จะเก็บใน Postgres ฝังในเครื่องที่ `.veritas/pgdata` แทน ไฟล์ `.env` ถูก git ignore ไม่ถูก push ขึ้น GitHub
 
