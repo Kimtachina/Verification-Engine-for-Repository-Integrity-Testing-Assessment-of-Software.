@@ -114,6 +114,6 @@ findings are grouped under file `"."`.
 | `HOST` / `PORT` | `127.0.0.1` / `4000` |
 | `VERITAS_CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` (comma-separated) |
 
-Tables live in the `veritas` schema, which Supabase does not expose through its REST API, with row level security on. Migrations in `backend/src/db/migrations` run at startup.
+Tables live in `public` so they show in Supabase's Table Editor. Row level security is on with no policies and the `anon`/`authenticated` grants are revoked, so Supabase's REST API can read nothing; only the VERITAS backend uses them. Do not add RLS policies to them. Migrations in `backend/src/db/migrations` run at startup.
 
 Scans left running when the server stopped are marked `failed` at the next start.

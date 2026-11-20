@@ -54,7 +54,7 @@ async function setup(
 ) {
   opened ??= await openDatabase({ memory: true });
   db = opened.db;
-  await db.execute(sql`truncate veritas.findings, veritas.scans, veritas.settings`);
+  await db.execute(sql`truncate findings, scans, settings`);
   repo = new ScanRepository(db);
   // The fixture has no veritas.config.ts; point the root at it and keep scans fast.
   settings = new SettingsService(db, SAMPLE, { root: SAMPLE, dimensions: [...FAST.dimensions] });
