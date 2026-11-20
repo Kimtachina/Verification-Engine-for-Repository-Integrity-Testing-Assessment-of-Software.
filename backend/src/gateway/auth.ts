@@ -121,16 +121,16 @@ export function loginPage(next: string, error?: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>เข้าสู่ระบบ · VERITAS</title>
 <style>
-  :root { color-scheme: light dark; --bg: #fafafa; --fg: #171717; --muted: #737373; --border: #e5e5e5; --card: #fff; --bad: #b91c1c; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #0a0a0a; --fg: #f5f5f5; --muted: #a3a3a3; --border: #262626; --card: #171717; --bad: #f87171; } }
+  /* The dashboard's light drafting sheet: grey paper, ink lines, signal red. */
+  :root { color-scheme: light; --bg: #d4d3d0; --fg: #222120; --muted: #57554f; --border: rgb(34 33 32 / 35%); --card: #dedddb; --bad: #b3261e; --signal: #c8352b; }
   * { box-sizing: border-box; }
   body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, "IBM Plex Sans Thai", sans-serif; }
-  form { width: 100%; max-width: 340px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; display: grid; gap: 12px; }
-  h1 { margin: 0; font-size: 20px; letter-spacing: 0.02em; }
+  form { width: 100%; max-width: 340px; background: var(--card); border: 1px solid var(--border); border-radius: 2px; padding: 24px; display: grid; gap: 12px; }
+  h1 { margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.02em; color: var(--signal); }
   p { margin: 0; color: var(--muted); font-size: 14px; }
   label { font-size: 14px; font-weight: 500; }
-  input { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; font: inherit; }
-  button { padding: 9px; border: 0; border-radius: 8px; background: var(--fg); color: var(--bg); font: inherit; font-weight: 500; cursor: pointer; }
+  input { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 2px; background: transparent; color: inherit; font: inherit; }
+  button { padding: 9px; border: 0; border-radius: 2px; background: var(--fg); color: var(--bg); font: inherit; font-weight: 500; cursor: pointer; }
   .error { color: var(--bad); }
 </style>
 </head>

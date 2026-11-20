@@ -2,8 +2,9 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* Follows the operating system setting; no toggle needed for a local tool. */
-@custom-variant dark (@media (prefers-color-scheme: dark));
+/* Always the light drafting sheet, whatever the operating system prefers. The dark:
+   utilities in the ui components only apply under a .dark class, which is never set. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
   --font-mono: var(--font-mono);
@@ -107,51 +108,6 @@
   --good: oklch(0.47 0.13 155);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* The same drawing at night: graphite paper, chalk lines, the red a step brighter. */
-    --background: oklch(0.17 0.003 90);
-    --foreground: oklch(0.91 0.003 90);
-    --card: oklch(0.2 0.003 90);
-    --card-foreground: oklch(0.91 0.003 90);
-    --popover: oklch(0.22 0.003 90);
-    --popover-foreground: oklch(0.91 0.003 90);
-    --primary: oklch(0.91 0.003 90);
-    --primary-foreground: oklch(0.17 0.003 90);
-    --secondary: oklch(0.25 0.003 90);
-    --secondary-foreground: oklch(0.91 0.003 90);
-    --muted: oklch(0.25 0.003 90);
-    --muted-foreground: oklch(0.7 0.003 90);
-    --accent: oklch(0.25 0.003 90);
-    --accent-foreground: oklch(0.91 0.003 90);
-    --destructive: oklch(0.68 0.18 27);
-    --border: oklch(0.91 0.003 90 / 22%);
-    --input: oklch(0.91 0.003 90 / 30%);
-    --ring: oklch(0.68 0.18 29);
-    --signal: oklch(0.68 0.18 29);
-    --grid-line: oklch(0.91 0.003 90 / 6%);
-    --chart-1: oklch(0.68 0.18 29);
-    --chart-2: oklch(0.91 0.003 90);
-    --chart-3: oklch(0.7 0.003 90);
-    --chart-4: oklch(0.5 0.003 90);
-    --chart-5: oklch(0.35 0.003 90);
-    --sidebar: oklch(0.2 0.003 90);
-    --sidebar-foreground: oklch(0.91 0.003 90);
-    --sidebar-primary: oklch(0.68 0.18 29);
-    --sidebar-primary-foreground: oklch(0.17 0.003 90);
-    --sidebar-accent: oklch(0.25 0.003 90);
-    --sidebar-accent-foreground: oklch(0.91 0.003 90);
-    --sidebar-border: oklch(0.91 0.003 90 / 22%);
-    --sidebar-ring: oklch(0.68 0.18 29);
-    --sev-critical: oklch(0.72 0.18 330);
-    --sev-high: oklch(0.7 0.19 25);
-    --sev-medium: oklch(0.8 0.15 80);
-    --sev-low: oklch(0.72 0.13 250);
-    --sev-info: oklch(0.65 0 0);
-    --good: oklch(0.74 0.15 155);
-  }
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -188,6 +144,8 @@
   }
   html {
     @apply font-sans;
+    /* Native controls (scrollbars, date pickers, autofill) match the light page. */
+    color-scheme: light;
   }
 }
 
