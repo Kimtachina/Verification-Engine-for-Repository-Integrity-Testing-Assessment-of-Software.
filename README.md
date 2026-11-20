@@ -1,1 +1,6 @@
-
+![VERITAS overview](docs/screenshots/overview.png)
+![Scan report](docs/screenshots/scan-report.png)
+![Finding detail](docs/screenshots/finding.png)
+![Scan history](docs/screenshots/history.png)
+![Scan comparison](docs/screenshots/compare.png)
+![Settings](docs/screenshots/settings.png)
