@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -20,9 +20,10 @@ import {
   UPLOAD_LIMITS,
   uploadSchema,
 } from "@veritas/shared";
+import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { createApp } from "../../src/app";
-import { type Db, openDatabase } from "../../src/db/client";
+import { type Db, type OpenedDatabase, openDatabase } from "../../src/db/client";
 import { INTERRUPTED_ERROR, ScanRepository } from "../../src/db/scan-repository";
 import { runScan } from "../../src/engine/pipeline";
 import { ScanRunner, type ScanRunnerDeps } from "../../src/services/scan-runner";
@@ -43,8 +44,17 @@ let uploads: UploadStore;
 let uploadsDir: string;
 let app: ReturnType<typeof createApp>;
 
-function setup(runScanImpl?: ScanRunnerDeps["runScan"], loadConfig?: ScanRunnerDeps["loadConfig"]) {
-  db = openDatabase(":memory:").db;
+/** One embedded Postgres for the file, emptied before each test: starting one takes a while. */
+let opened: OpenedDatabase | null = null;
+afterAll(() => opened?.close());
+
+async function setup(
+  runScanImpl?: ScanRunnerDeps["runScan"],
+  loadConfig?: ScanRunnerDeps["loadConfig"],
+) {
+  opened ??= await openDatabase({ memory: true });
+  db = opened.db;
+  await db.execute(sql`truncate veritas.findings, veritas.scans, veritas.settings`);
   repo = new ScanRepository(db);
   // The fixture has no veritas.config.ts; point the root at it and keep scans fast.
   settings = new SettingsService(db, SAMPLE, { root: SAMPLE, dimensions: [...FAST.dimensions] });
@@ -141,7 +151,7 @@ describe("POST /api/scans", () => {
 
   test("409 while another scan is running; allowed again once it finishes", async () => {
     const gated = gatedRunScan();
-    setup(gated.impl);
+    await setup(gated.impl);
     const first = await post("/api/scans");
     const second = await post("/api/scans");
     expect(second.status).toBe(409);
@@ -174,7 +184,7 @@ describe("POST /api/scans", () => {
   });
 
   test("a scan that throws is stored as failed with its error", async () => {
-    setup(async () => {
+    await setup(async () => {
       throw new Error("analyzer exploded");
     });
     const scan = await completedScan();
@@ -183,7 +193,7 @@ describe("POST /api/scans", () => {
   });
 
   test("an unexpected server error is a generic 500 that leaks nothing", async () => {
-    setup(undefined, async () => {
+    await setup(undefined, async () => {
       throw new Error("ENOENT: /Users/secret/path/veritas.config.ts");
     });
     const { status, text } = await post("/api/scans");
@@ -339,7 +349,7 @@ describe("GET /api/scans/:id/compare/:baseId", () => {
     const done = await completedScan();
     expect((await call(`/api/scans/${done.id}/compare/nope`)).status).toBe(404);
     const gated = gatedRunScan();
-    setup(gated.impl);
+    await setup(gated.impl);
     const other = await completedScanAfter(gated);
     expect(other.status).toBe(409);
   });
@@ -404,7 +414,7 @@ async function readEvents(res: Response): Promise<ScanEvent[]> {
 describe("GET /api/scans/:id/events (SSE)", () => {
   test("a running scan replays past events, streams the rest, and ends with the stored result", async () => {
     const gated = gatedRunScan();
-    setup(gated.impl);
+    await setup(gated.impl);
     const scan = (await post("/api/scans")).body as Scan;
 
     // Subscribe after the scan has already emitted discovery-started.
@@ -446,11 +456,14 @@ describe("GET /api/scans/:id/events (SSE)", () => {
 describe("startup recovery", () => {
   test("scans left running by a stopped server are marked failed", async () => {
     const gated = gatedRunScan();
-    setup(gated.impl);
+    await setup(gated.impl);
     const scan = (await post("/api/scans")).body as Scan;
     // Simulate a restart: a fresh repository over the same database sees a "running" row.
-    expect(repo.failInterruptedScans("2026-01-01T00:00:00.000Z")).toBe(1);
-    expect(repo.getScan(scan.id)).toMatchObject({ status: "failed", error: INTERRUPTED_ERROR });
+    expect(await repo.failInterruptedScans("2026-01-01T00:00:00.000Z")).toBe(1);
+    expect(await repo.getScan(scan.id)).toMatchObject({
+      status: "failed",
+      error: INTERRUPTED_ERROR,
+    });
     gated.release();
     await runner.idle();
   });
@@ -524,7 +537,7 @@ describe("/api/settings", () => {
   test("settings survive a new service over the same database", async () => {
     await put({ ignore: ["src/**"] });
     const again = new SettingsService(db, SAMPLE, { root: SAMPLE });
-    expect(again.overrides()).toEqual({ ignore: ["src/**"] });
+    expect(await again.overrides()).toEqual({ ignore: ["src/**"] });
   });
 
   test.each([
@@ -535,7 +548,7 @@ describe("/api/settings", () => {
     ["tiny timeout", { analyzerTimeoutMs: 5 }],
   ])("400 and nothing saved for %s", async (_name, body) => {
     expect((await put(body)).status).toBe(400);
-    expect(settings.overrides()).toEqual({});
+    expect(await settings.overrides()).toEqual({});
   });
 
   test("the overrides schema covers exactly the configurable thresholds", () => {

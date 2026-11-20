@@ -12,7 +12,7 @@ import { and, asc, count, desc, eq, inArray, or, type SQL, sql } from "drizzle-o
 import type { Db } from "./client";
 import { findings, scans } from "./schema";
 
-/** SQLite allows 32,766 bound variables per statement; 11 columns × 500 rows stays well under. */
+/** Postgres allows 65,535 bound parameters per statement; 11 columns × 500 rows stays well under. */
 const INSERT_BATCH = 500;
 
 export const INTERRUPTED_ERROR = "The server stopped before this scan finished.";
@@ -21,89 +21,91 @@ export const INTERRUPTED_ERROR = "The server stopped before this scan finished."
 export class ScanRepository {
   constructor(private readonly db: Db) {}
 
-  insertScan(scan: Scan): void {
-    this.db.insert(scans).values(scanRow(scan)).run();
+  async insertScan(scan: Scan): Promise<void> {
+    await this.db.insert(scans).values(scanRow(scan));
   }
 
   /** Stores the final scan and all its findings atomically: readers never see half a scan. */
-  completeScan(scan: Scan, scanFindings: readonly Finding[]): void {
-    this.db.transaction((tx) => {
-      tx.update(scans).set(scanRow(scan)).where(eq(scans.id, scan.id)).run();
-      tx.delete(findings).where(eq(findings.scanId, scan.id)).run();
+  async completeScan(scan: Scan, scanFindings: readonly Finding[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      await tx.update(scans).set(scanRow(scan)).where(eq(scans.id, scan.id));
+      await tx.delete(findings).where(eq(findings.scanId, scan.id));
       for (let i = 0; i < scanFindings.length; i += INSERT_BATCH) {
         const batch = scanFindings.slice(i, i + INSERT_BATCH).map((f) => findingRow(scan.id, f));
-        tx.insert(findings).values(batch).run();
+        await tx.insert(findings).values(batch);
       }
     });
   }
 
   /** Marks scans left running by a previous server process as failed. Returns how many. */
-  failInterruptedScans(now: string): number {
-    const stale = this.db
+  async failInterruptedScans(now: string): Promise<number> {
+    const stale = await this.db
       .select({ data: scans.data })
       .from(scans)
-      .where(inArray(scans.status, ["queued", "running"]))
-      .all();
+      .where(inArray(scans.status, ["queued", "running"]));
     for (const row of stale) {
       const scan = scanSchema.parse(row.data);
-      this.updateScan({ ...scan, status: "failed", finishedAt: now, error: INTERRUPTED_ERROR });
+      await this.updateScan({
+        ...scan,
+        status: "failed",
+        finishedAt: now,
+        error: INTERRUPTED_ERROR,
+      });
     }
     return stale.length;
   }
 
-  updateScan(scan: Scan): void {
-    this.db.update(scans).set(scanRow(scan)).where(eq(scans.id, scan.id)).run();
+  async updateScan(scan: Scan): Promise<void> {
+    await this.db.update(scans).set(scanRow(scan)).where(eq(scans.id, scan.id));
   }
 
-  getScan(id: string): Scan | null {
-    const row = this.db.select({ data: scans.data }).from(scans).where(eq(scans.id, id)).get();
+  async getScan(id: string): Promise<Scan | null> {
+    const [row] = await this.db
+      .select({ data: scans.data })
+      .from(scans)
+      .where(eq(scans.id, id))
+      .limit(1);
     return row ? scanSchema.parse(row.data) : null;
   }
 
   /** Newest first. */
-  listScans(limit: number, offset: number): Scan[] {
-    return this.db
+  async listScans(limit: number, offset: number): Promise<Scan[]> {
+    const rows = await this.db
       .select({ data: scans.data })
       .from(scans)
       .orderBy(desc(scans.startedAt), desc(scans.id))
       .limit(limit)
-      .offset(offset)
-      .all()
-      .map((r) => scanSchema.parse(r.data));
+      .offset(offset);
+    return rows.map((r) => scanSchema.parse(r.data));
   }
 
-  getFinding(id: string): Finding | null {
-    const row = this.db
+  async getFinding(id: string): Promise<Finding | null> {
+    const [row] = await this.db
       .select({ data: findings.data })
       .from(findings)
       .where(eq(findings.id, id))
-      .get();
+      .limit(1);
     return row ? findingSchema.parse(row.data) : null;
   }
 
   /** Every finding of a scan, worst first. For reports and scan comparison. */
-  allFindings(scanId: string): Finding[] {
-    return this.db
+  async allFindings(scanId: string): Promise<Finding[]> {
+    const rows = await this.db
       .select({ data: findings.data })
       .from(findings)
       .where(eq(findings.scanId, scanId))
-      .orderBy(
-        asc(findings.severityRank),
-        asc(findings.file),
-        asc(findings.startLine),
-        asc(findings.ruleId),
-      )
-      .all()
-      .map((r) => findingSchema.parse(r.data));
+      .orderBy(asc(findings.severityRank), asc(findings.file), START_LINE, asc(findings.ruleId));
+    return rows.map((r) => findingSchema.parse(r.data));
   }
 
   /**
    * Findings per file, the file most worth fixing first: ordered by the same severity
    * weights the scores use, then by name.
    */
-  fileSummaries(scanId: string): FileSummary[] {
+  fileSummaries(scanId: string): Promise<FileSummary[]> {
+    // Postgres counts are bigint, which the driver returns as strings: cast and map.
     const bySeverity = (s: string) =>
-      sql<number>`sum(case when ${findings.severity} = ${s} then 1 else 0 end)`;
+      sql<number>`cast(count(*) filter (where ${findings.severity} = ${s}) as int)`.mapWith(Number);
     const weighted = sql`sum(case ${findings.severity}
       when 'critical' then 10 when 'high' then 5 when 'medium' then 2 when 'low' then 0.5 else 0 end)`;
     return this.db
@@ -119,39 +121,35 @@ export class ScanRepository {
       .from(findings)
       .where(eq(findings.scanId, scanId))
       .groupBy(findings.file)
-      .orderBy(desc(weighted), asc(findings.file))
-      .all();
+      .orderBy(desc(weighted), asc(findings.file));
   }
 
-  queryFindings(scanId: string, query: FindingQuery): FindingPage {
+  async queryFindings(scanId: string, query: FindingQuery): Promise<FindingPage> {
     const where = and(eq(findings.scanId, scanId), ...filters(query));
-    const total = this.db.select({ n: count() }).from(findings).where(where).get()?.n ?? 0;
-    const items = this.db
+    const [counted] = await this.db.select({ n: count() }).from(findings).where(where);
+    const rows = await this.db
       .select({ data: findings.data })
       .from(findings)
       .where(where)
       .orderBy(...ORDER[query.sort])
       .limit(query.limit)
-      .offset(query.offset)
-      .all()
-      .map((r) => findingSchema.parse(r.data));
-    return { items, total, limit: query.limit, offset: query.offset };
+      .offset(query.offset);
+    const items = rows.map((r) => findingSchema.parse(r.data));
+    return { items, total: counted?.n ?? 0, limit: query.limit, offset: query.offset };
   }
 }
 
+/** Whole-file findings (no line) come first within a file. */
+const START_LINE = sql`${findings.startLine} asc nulls first`;
+
 const ORDER = {
-  severity: [
-    asc(findings.severityRank),
-    asc(findings.file),
-    asc(findings.startLine),
-    asc(findings.id),
-  ],
-  file: [asc(findings.file), asc(findings.startLine), asc(findings.severityRank), asc(findings.id)],
+  severity: [asc(findings.severityRank), asc(findings.file), START_LINE, asc(findings.id)],
+  file: [asc(findings.file), START_LINE, asc(findings.severityRank), asc(findings.id)],
   dimension: [
     asc(findings.dimension),
     asc(findings.severityRank),
     asc(findings.file),
-    asc(findings.startLine),
+    START_LINE,
     asc(findings.id),
   ],
 } satisfies Record<FindingQuery["sort"], SQL[]>;
@@ -163,23 +161,24 @@ function filters(query: FindingQuery): SQL[] {
   if (query.file) {
     out.push(
       query.file.endsWith("/")
-        ? sql`${findings.file} LIKE ${`${escapeLike(query.file)}%`} ESCAPE '\\'`
+        ? sql`${findings.file} LIKE ${`${escapeLike(query.file)}%`}`
         : eq(findings.file, query.file),
     );
   }
   if (query.q) {
     const pattern = `%${escapeLike(query.q)}%`;
+    // ILIKE: the search is case-insensitive, as the API documents.
     const match = or(
-      sql`${findings.message} LIKE ${pattern} ESCAPE '\\'`,
-      sql`${findings.ruleId} LIKE ${pattern} ESCAPE '\\'`,
-      sql`${findings.file} LIKE ${pattern} ESCAPE '\\'`,
+      sql`${findings.message} ILIKE ${pattern}`,
+      sql`${findings.ruleId} ILIKE ${pattern}`,
+      sql`${findings.file} ILIKE ${pattern}`,
     );
     if (match) out.push(match);
   }
   return out;
 }
 
-/** User text is matched literally: %, _ and \ lose their LIKE meaning. */
+/** User text is matched literally: %, _ and \ (Postgres' default LIKE escape) lose their meaning. */
 function escapeLike(text: string): string {
   return text.replace(/[\\%_]/g, (c) => `\\${c}`);
 }

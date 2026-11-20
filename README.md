@@ -36,6 +36,16 @@ bun run lint        # Biome
 brew install ruff semgrep gitleaks osv-scanner
 ```
 
+## ฐานข้อมูล (Supabase)
+
+ผลสแกนเก็บใน Supabase โปรเจกต์ `veritas` ตั้งค่าครั้งแรก:
+
+1. คัดลอก `.env.example` เป็น `.env`
+2. ใน Supabase dashboard กด **Connect** แล้วเลือก **Session pooler** คัดลอก URI มาใส่ `DATABASE_URL` และใส่รหัสผ่านฐานข้อมูลแทน `[YOUR-PASSWORD]` ถ้าจำไม่ได้ ให้ตั้งใหม่ที่ Project Settings → Database
+3. `bun run api` จะสร้างตารางให้เองตอนเปิดครั้งแรก
+
+ตารางอยู่ใน schema `veritas` ซึ่งไม่เปิดผ่าน REST API ของ Supabase และเปิด RLS ไว้ เข้าถึงได้ทาง backend ของ VERITAS เท่านั้น ถ้าไม่ตั้ง `DATABASE_URL` จะเก็บใน Postgres ฝังในเครื่องที่ `.veritas/pgdata` แทน ไฟล์ `.env` ถูก git ignore ไม่ถูก push ขึ้น GitHub
+
 ## ตั้งค่า
 
 แก้ `veritas.config.ts` ทุกค่าไม่บังคับ ดูรายการทั้งหมดที่ `shared/src/schemas/config.schema.ts`

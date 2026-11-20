@@ -20,9 +20,10 @@ const listQuerySchema = z
 const reportQuerySchema = z.object({ format: reportFormatSchema.default("json") }).strict();
 
 export function scanRoutes({ repo, runner }: { repo: ScanRepository; runner: ScanRunner }) {
-  const requireScan = (id: string) => repo.getScan(id) ?? throwError(notFound("Scan"));
-  const requireCompleted = (id: string) => {
-    const scan = requireScan(id);
+  const requireScan = async (id: string) =>
+    (await repo.getScan(id)) ?? throwError(notFound("Scan"));
+  const requireCompleted = async (id: string) => {
+    const scan = await requireScan(id);
     if (scan.status !== "completed") {
       throw new HttpError(
         409,
@@ -47,32 +48,32 @@ export function scanRoutes({ repo, runner }: { repo: ScanRepository; runner: Sca
         return repo.listScans(limit, offset);
       })
       .get("/:id", ({ params }) => requireScan(params.id))
-      .get("/:id/findings", ({ params, query }) => {
-        requireScan(params.id);
+      .get("/:id/findings", async ({ params, query }) => {
+        await requireScan(params.id);
         return repo.queryFindings(params.id, parseInput(findingQuerySchema, query, "query"));
       })
       /** Findings per file, the most severe first. */
-      .get("/:id/files", ({ params }) => {
-        requireScan(params.id);
+      .get("/:id/files", async ({ params }) => {
+        await requireScan(params.id);
         return repo.fileSummaries(params.id);
       })
-      .get("/:id/events", ({ params, request }) => {
-        requireScan(params.id);
+      .get("/:id/events", async ({ params, request }) => {
+        await requireScan(params.id);
         return scanEventStream(params.id, runner, repo, request.signal);
       })
       /** :id is the newer scan (head), :baseId the one it is compared against. */
-      .get("/:id/compare/:baseId", ({ params }) => {
-        const head = requireCompleted(params.id);
-        const base = requireCompleted(params.baseId);
+      .get("/:id/compare/:baseId", async ({ params }) => {
+        const head = await requireCompleted(params.id);
+        const base = await requireCompleted(params.baseId);
         return compareScans(
-          { scan: base, findings: repo.allFindings(base.id) },
-          { scan: head, findings: repo.allFindings(head.id) },
+          { scan: base, findings: await repo.allFindings(base.id) },
+          { scan: head, findings: await repo.allFindings(head.id) },
         );
       })
-      .get("/:id/report", ({ params, query }) => {
+      .get("/:id/report", async ({ params, query }) => {
         const { format } = parseInput(reportQuerySchema, query, "query");
-        const scan = requireCompleted(params.id);
-        const report = buildReport({ scan, findings: repo.allFindings(scan.id) });
+        const scan = await requireCompleted(params.id);
+        const report = buildReport({ scan, findings: await repo.allFindings(scan.id) });
         const { body, contentType, extension } = renderReport(report, format);
         return new Response(body, {
           headers: {

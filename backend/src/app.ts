@@ -86,8 +86,8 @@ export function createApp({ repo, runner, settings, uploads, root, corsOrigins }
       .put("/api/settings", ({ body }) =>
         settings.update(parseInput(settingsOverridesSchema, body ?? {}, "settings")),
       )
-      .get("/api/findings/:id", ({ params }) => {
-        const finding = repo.getFinding(params.id);
+      .get("/api/findings/:id", async ({ params }) => {
+        const finding = await repo.getFinding(params.id);
         if (!finding) throw notFound("Finding");
         return finding;
       })

@@ -74,7 +74,7 @@ export class ScanRunner {
     if (this.active) throw new HttpError(409, "A scan is already running; wait for it to finish.");
 
     const initial = runningScan(crypto.randomUUID(), config.rootDir, this.now());
-    this.deps.repo.insertScan(initial);
+    await this.deps.repo.insertScan(initial);
     const active: ActiveScan = {
       id: initial.id,
       events: [],
@@ -120,7 +120,7 @@ export class ScanRunner {
           if (e.type !== "scan-finished") emit(e);
         },
       });
-      this.deps.repo.completeScan(outcome.scan, outcome.findings);
+      await this.deps.repo.completeScan(outcome.scan, outcome.findings);
       final = outcome.scan;
     } catch (error) {
       final = {
@@ -129,7 +129,10 @@ export class ScanRunner {
         finishedAt: this.now().toISOString(),
         error: error instanceof Error ? error.message : String(error),
       };
-      this.deps.repo.updateScan(final);
+      // If the database is unreachable too, the scan stays "running" until the next start.
+      await this.deps.repo
+        .updateScan(final)
+        .catch((e) => console.error("Could not record failed scan:", e));
     }
     // Clear before announcing, so a client that starts a new scan on "finished" is not refused.
     this.active = null;

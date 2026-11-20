@@ -4,6 +4,7 @@
     "includes": [
       "**",
       "!code",
+      "!**/.veritas",
       "!**/node_modules",
       "!**/.next",
       "!backend/tests/fixtures",

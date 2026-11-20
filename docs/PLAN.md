@@ -11,7 +11,7 @@ Verification Engine for Repository Integrity, Testing & Assessment of Software
 | ภาษา | TypeScript ทั้งระบบ | ใช้ type และ schema ชุดเดียวทั้ง frontend และ backend |
 | Backend | Bun + Elysia | เร็ว, รัน TypeScript ตรง, เรียกโปรแกรมภายนอกง่าย |
 | Frontend | Next.js (App Router) + Tailwind + shadcn/ui | |
-| ฐานข้อมูล | SQLite + Drizzle | ไฟล์เดียว ไม่ต้องตั้ง server เหมาะกับเครื่องมือที่รันในเครื่อง |
+| ฐานข้อมูล | Supabase (Postgres) + Drizzle | เก็บประวัติไว้บนคลาวด์ ถ้าไม่ตั้ง `DATABASE_URL` จะใช้ Postgres ฝังในเครื่อง (PGlite) แทน SQL ชุดเดียวกัน |
 | สัญญากลาง | Zod ใน `shared/` | ตรวจข้อมูลที่ขอบระบบทั้งสองฝั่งด้วย schema เดียว |
 | วิธีตรวจ | ใช้เครื่องมือมาตรฐานเป็นหลัก + ตัวตรวจที่เขียนเอง | เครื่องมือมาตรฐานมีกฎหลายพันข้อที่ผ่านการใช้งานจริง เขียนเองทั้งหมดจะตรวจได้น้อยกว่าและผิดมากกว่า |
 | ภาษาที่ตรวจ | TypeScript/JavaScript และ Python เต็มรูปแบบ, ภาษาอื่นตรวจได้ในมิติที่ไม่ขึ้นกับภาษา | |

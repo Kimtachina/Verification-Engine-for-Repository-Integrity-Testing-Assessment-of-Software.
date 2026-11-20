@@ -27,18 +27,23 @@ export class SettingsService {
     private readonly base: ConfigInput = {},
   ) {}
 
-  overrides(): SettingsOverrides {
-    const row = this.db.select().from(settings).where(eq(settings.key, OVERRIDES_KEY)).get();
+  async overrides(): Promise<SettingsOverrides> {
+    const [row] = await this.db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, OVERRIDES_KEY))
+      .limit(1);
     // A row written by an older version that no longer validates is ignored, not fatal.
     const parsed = settingsOverridesSchema.safeParse(row?.value ?? {});
     return parsed.success ? parsed.data : {};
   }
 
   /** The config for a scan: file, then saved overrides, then the request's own options. */
-  loadConfig = (request: ConfigInput = {}): Promise<ResolvedConfig> =>
-    this.resolve(this.overrides(), request);
+  loadConfig = async (request: ConfigInput = {}): Promise<ResolvedConfig> =>
+    this.resolve(await this.overrides(), request);
 
-  async describe(overrides: SettingsOverrides = this.overrides()): Promise<Settings> {
+  async describe(saved?: SettingsOverrides): Promise<Settings> {
+    const overrides = saved ?? (await this.overrides());
     const config = await this.resolve(overrides);
     return {
       overrides,
@@ -58,14 +63,13 @@ export class SettingsService {
   async update(overrides: SettingsOverrides): Promise<Settings> {
     const described = await this.describe(overrides);
     const row = { key: OVERRIDES_KEY, value: overrides, updatedAt: new Date().toISOString() };
-    this.db
+    await this.db
       .insert(settings)
       .values(row)
       .onConflictDoUpdate({
         target: settings.key,
         set: { value: row.value, updatedAt: row.updatedAt },
-      })
-      .run();
+      });
     return described;
   }
 

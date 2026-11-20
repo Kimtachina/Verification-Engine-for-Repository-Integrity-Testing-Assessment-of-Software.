@@ -2,7 +2,7 @@
 import { join, resolve } from "node:path";
 import { createApp } from "./app";
 import { ConfigError, loadConfig } from "./config/load-config";
-import { openDatabase } from "./db/client";
+import { type OpenedDatabase, openDatabase, redact } from "./db/client";
 import { ScanRepository } from "./db/scan-repository";
 import { ScanRunner } from "./services/scan-runner";
 import { SettingsService } from "./services/settings-service";
@@ -12,7 +12,9 @@ import { VERITAS_VERSION } from "./version";
 /**
  * Environment:
  *   VERITAS_CONFIG_DIR  folder with veritas.config.ts (default: current directory)
- *   VERITAS_DB          SQLite file (default: <config dir>/.veritas/veritas.db)
+ *   DATABASE_URL        Postgres connection string, e.g. Supabase's session pooler URL.
+ *                       Without it, data goes to an embedded Postgres in VERITAS_DB_DIR.
+ *   VERITAS_DB_DIR      embedded database folder (default: <config dir>/.veritas/pgdata)
  *   HOST / PORT         listen address (default: 127.0.0.1:4000, local machine only)
  *   VERITAS_CORS_ORIGINS  comma-separated dashboard origins (default: localhost:3000 and 127.0.0.1:3000)
  */
@@ -35,10 +37,25 @@ try {
   process.exit(2);
 }
 
-const dbPath = resolve(process.env.VERITAS_DB ?? join(configDir, ".veritas", "veritas.db"));
-const { db, close } = openDatabase(dbPath);
+const databaseUrl = process.env.DATABASE_URL?.trim();
+let database: OpenedDatabase;
+try {
+  database = await openDatabase(
+    databaseUrl
+      ? { url: databaseUrl }
+      : { dir: resolve(process.env.VERITAS_DB_DIR ?? join(configDir, ".veritas", "pgdata")) },
+  );
+} catch (error) {
+  // Drizzle wraps the driver's error; the cause says what went wrong (refused, bad
+  // password, unknown host). Neither message contains the password.
+  const cause = error instanceof Error && error.cause instanceof Error ? error.cause : error;
+  const where = databaseUrl ? redact(databaseUrl) : "the embedded database";
+  console.error(`Could not open ${where}:`, cause instanceof Error ? cause.message : cause);
+  process.exit(2);
+}
+const { db, close, location } = database;
 const repo = new ScanRepository(db);
-const interrupted = repo.failInterruptedScans(new Date().toISOString());
+const interrupted = await repo.failInterruptedScans(new Date().toISOString());
 if (interrupted > 0) console.warn(`Marked ${interrupted} interrupted scan(s) as failed.`);
 
 const settings = new SettingsService(db, configDir);
@@ -57,11 +74,11 @@ const app = createApp({ repo, runner, settings, uploads, root, corsOrigins }).li
 
 console.log(`VERITAS API ${VERITAS_VERSION} on http://${hostname}:${port}`);
 console.log(`  scanning ${root}`);
-console.log(`  database ${dbPath}`);
+console.log(`  database ${location}`);
 
 const shutdown = async () => {
   await app.stop();
-  close();
+  await close();
   process.exit(0);
 };
 process.on("SIGINT", shutdown);

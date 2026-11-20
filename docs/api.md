@@ -109,8 +109,11 @@ findings are grouped under file `"."`.
 | Variable | Default |
 |---|---|
 | `VERITAS_CONFIG_DIR` | current directory (where `veritas.config.ts` lives) |
-| `VERITAS_DB` | `<config dir>/.veritas/veritas.db` |
+| `DATABASE_URL` | none: Postgres connection string (Supabase session pooler URI). Without it, an embedded Postgres is used |
+| `VERITAS_DB_DIR` | `<config dir>/.veritas/pgdata` (embedded Postgres, only without `DATABASE_URL`) |
 | `HOST` / `PORT` | `127.0.0.1` / `4000` |
 | `VERITAS_CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` (comma-separated) |
+
+Tables live in the `veritas` schema, which Supabase does not expose through its REST API, with row level security on. Migrations in `backend/src/db/migrations` run at startup.
 
 Scans left running when the server stopped are marked `failed` at the next start.

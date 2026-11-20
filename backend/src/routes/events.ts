@@ -30,7 +30,7 @@ export function scanEventStream(
   let cleanup = () => {};
 
   const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
+    async start(controller) {
       let closed = false;
       const write = (text: string) => {
         if (!closed) controller.enqueue(encoder.encode(text));
@@ -50,7 +50,7 @@ export function scanEventStream(
       });
 
       if (!subscription) {
-        const scan = repo.getScan(scanId);
+        const scan = await repo.getScan(scanId);
         if (scan) send({ type: "scan-finished", scan });
         close();
         return;
