@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans_Thai, JetBrains_Mono } from "next/font/google";
+import { IBM_Plex_Sans_Thai, Inter_Tight, JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import { Providers } from "@/components/providers";
 import { SiteHeader } from "@/components/site-header";
@@ -12,6 +12,14 @@ const sans = IBM_Plex_Sans_Thai({
   variable: "--font-sans",
   display: "swap",
 });
+// Display: a tight, heavy grotesk for headings and numbers, the poster voice of the theme.
+// Thai characters fall back to Plex Sans Thai through the --font-display stack.
+const display = Inter_Tight({
+  subsets: ["latin"],
+  weight: ["600", "700", "800", "900"],
+  variable: "--font-display",
+  display: "swap",
+});
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
@@ -21,7 +29,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="th" className={`${sans.variable} ${mono.variable}`}>
+    <html lang="th" className={`${sans.variable} ${display.variable} ${mono.variable}`}>
       <body className="min-h-dvh antialiased">
         <Providers>
           <SiteHeader />
