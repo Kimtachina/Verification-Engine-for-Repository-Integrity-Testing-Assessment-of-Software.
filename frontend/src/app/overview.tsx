@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { ApiErrorAlert, LoadingBlock } from "@/components/api-state";
 import { SeverityCountsRow } from "@/components/findings/severity-badge";
+import { IsoCity } from "@/components/iso-city";
 import { DimensionGrid } from "@/components/scan/dimension-grid";
 import { RecentScans, ScanStatusBadge } from "@/components/scan/recent-scans";
 import { ScanProgressCard } from "@/components/scan/scan-progress-card";
@@ -30,10 +31,26 @@ export function Overview() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">ภาพรวม</h1>
-        <p className="text-muted-foreground">สแกนโค้ด ดูคะแนนรวม และไล่แก้ปัญหาจากรุนแรงที่สุดก่อน</p>
-      </div>
+      <section className="relative overflow-hidden border border-foreground/35 bg-card/60 px-6 py-8 sm:px-8 sm:py-12">
+        <IsoCity className="pointer-events-none absolute -right-16 -bottom-10 h-[150%] text-foreground/75 max-md:opacity-25" />
+        <div className="relative max-w-md space-y-4">
+          <p className="slash-label leading-relaxed">
+            Verification Engine
+            <br />
+            for Repository Integrity
+          </p>
+          <h1 className="font-display text-6xl leading-[0.85] font-black tracking-tighter text-signal sm:text-7xl">
+            VERITAS
+          </h1>
+          <p className="max-w-sm text-muted-foreground">
+            สแกนโค้ด ดูคะแนนรวม และไล่แก้ปัญหาจากรุนแรงที่สุดก่อน ตรวจละเอียด 10 มิติ
+          </p>
+          <p className="font-display text-sm leading-tight font-bold tracking-wide">
+            {"/// 10 DIMENSIONS"}
+            <br />7 ANALYZERS
+          </p>
+        </div>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <div className="space-y-6">
@@ -55,7 +72,7 @@ export function Overview() {
         <section className="space-y-4" aria-labelledby="latest-heading">
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
-              <h2 id="latest-heading" className="text-lg font-semibold">
+              <h2 id="latest-heading" className="slash-label">
                 ผลสแกนล่าสุด
               </h2>
               <p className="text-sm text-muted-foreground">{formatDateTime(latest.startedAt)}</p>
@@ -84,7 +101,7 @@ export function Overview() {
       )}
 
       <section className="space-y-3" aria-labelledby="history-heading">
-        <h2 id="history-heading" className="text-lg font-semibold">
+        <h2 id="history-heading" className="slash-label">
           การสแกนล่าสุด
         </h2>
         {scans.error ? (
