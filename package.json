@@ -17,7 +17,8 @@
     "test": "bun test",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "db:import-sqlite": "bun backend/scripts/import-sqlite.ts"
+    "db:import-sqlite": "bun backend/scripts/import-sqlite.ts",
+    "deploy:hf": "bash deploy/huggingface/deploy.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.7",

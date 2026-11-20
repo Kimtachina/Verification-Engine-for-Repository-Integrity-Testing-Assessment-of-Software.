@@ -47,6 +47,17 @@ brew install ruff semgrep gitleaks osv-scanner
 
 ตารางอยู่ใน schema `veritas` ซึ่งไม่เปิดผ่าน REST API ของ Supabase และเปิด RLS ไว้ เข้าถึงได้ทาง backend ของ VERITAS เท่านั้น ถ้าไม่ตั้ง `DATABASE_URL` จะเก็บใน Postgres ฝังในเครื่องที่ `.veritas/pgdata` แทน ไฟล์ `.env` ถูก git ignore ไม่ถูก push ขึ้น GitHub
 
+## เปิดบน Hugging Face Spaces (ฟรี)
+
+`Dockerfile` รวม API หน้าเว็บ และเครื่องมือตรวจทั้งหมดไว้ใน image เดียว เปิดที่พอร์ต 7860 และต้องใส่รหัสผ่านก่อนเข้าใช้
+
+1. สร้าง access token แบบ **Write** ที่ https://huggingface.co/settings/tokens แล้วใส่ `HF_TOKEN=...` ใน `.env`
+2. `bun run deploy:hf <ชื่อผู้ใช้>/veritas` สร้าง Space แบบ private (ถ้ายังไม่มี) และอัปโหลดเฉพาะไฟล์ที่ commit แล้ว ไฟล์ `.env` ไม่ถูกอัปโหลด
+3. ใน Space → Settings → **Variables and secrets** เพิ่ม secret `DATABASE_URL` (ค่าเดียวกับใน `.env`) และ `VERITAS_PASSWORD` (12 ตัวขึ้นไป)
+4. เปิดเว็บที่หน้า Space แล้วใส่ `VERITAS_PASSWORD`
+
+ถ้าตั้ง `HOST` เป็นค่าที่ไม่ใช่ `127.0.0.1` โดยไม่มี `VERITAS_PASSWORD` API จะไม่ยอมเปิด เพื่อกันไม่ให้ใครก็ได้เข้าถึงจากภายนอก
+
 ## ตั้งค่า
 
 แก้ `veritas.config.ts` ทุกค่าไม่บังคับ ดูรายการทั้งหมดที่ `shared/src/schemas/config.schema.ts`

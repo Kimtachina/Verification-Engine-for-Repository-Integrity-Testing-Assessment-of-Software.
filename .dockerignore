@@ -1,0 +1,16 @@
+# Only what the image needs; never secrets, local data or code under inspection.
+**/node_modules
+**/.next
+.git
+.env
+.env.*
+!.env.example
+.veritas
+code
+reports
+coverage
+docs
+backend/tests
+frontend/tests
+**/*.tsbuildinfo
+.DS_Store

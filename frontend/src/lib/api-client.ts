@@ -23,8 +23,18 @@ import {
 } from "@veritas/shared";
 import { type ZodType, z } from "zod";
 
-/** Where the VERITAS API runs. Set NEXT_PUBLIC_VERITAS_API to point elsewhere. */
-export const API_BASE = process.env.NEXT_PUBLIC_VERITAS_API ?? "http://127.0.0.1:4000";
+/**
+ * Where the VERITAS API runs. Set NEXT_PUBLIC_VERITAS_API to point elsewhere; "/" means the
+ * same origin as the dashboard (the Docker image serves both on one port).
+ */
+export const API_BASE = process.env.NEXT_PUBLIC_VERITAS_API || "http://127.0.0.1:4000";
+
+/** A path base ("/") resolves against the page's own origin, in the browser. */
+function absoluteBase(base: string): string {
+  return base.startsWith("/") && typeof window !== "undefined"
+    ? new URL(base, window.location.origin).toString()
+    : base;
+}
 
 export class ApiError extends Error {
   override name = "ApiError";
@@ -43,15 +53,20 @@ export class ApiError extends Error {
  * schema, so a backend/frontend mismatch fails loudly here instead of rendering bad data.
  */
 export function createApiClient(baseUrl: string = API_BASE) {
+  const base = () => absoluteBase(baseUrl);
   async function request<T>(path: string, schema: ZodType<T>, init?: RequestInit): Promise<T> {
     let response: Response;
     try {
-      response = await fetch(new URL(path, baseUrl), {
+      response = await fetch(new URL(path, base()), {
         ...init,
         headers: { "content-type": "application/json", ...init?.headers },
       });
     } catch {
       throw new ApiError(`Cannot reach the VERITAS API at ${baseUrl}`, 0);
+    }
+    // The session ran out on a password-protected server: back to its login page.
+    if (response.status === 401 && typeof window !== "undefined" && baseUrl.startsWith("/")) {
+      window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname)}`);
     }
     const body: unknown = await response.json().catch(() => null);
     if (!response.ok) {
@@ -108,7 +123,7 @@ export function createApiClient(baseUrl: string = API_BASE) {
         form.append("name", name);
         for (const f of files) form.append("files", f.file, f.path);
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", new URL("/api/uploads", baseUrl));
+        xhr.open("POST", new URL("/api/uploads", base()));
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) onProgress(e.loaded / e.total);
         };
@@ -131,9 +146,9 @@ export function createApiClient(baseUrl: string = API_BASE) {
       }),
     /** For <a download> and EventSource, which need a URL rather than a fetch. */
     reportUrl: (id: string, format: ReportFormat = "json") =>
-      new URL(`/api/scans/${encodeURIComponent(id)}/report?format=${format}`, baseUrl).toString(),
+      new URL(`/api/scans/${encodeURIComponent(id)}/report?format=${format}`, base()).toString(),
     eventsUrl: (id: string) =>
-      new URL(`/api/scans/${encodeURIComponent(id)}/events`, baseUrl).toString(),
+      new URL(`/api/scans/${encodeURIComponent(id)}/events`, base()).toString(),
   };
 }
 

@@ -4,6 +4,8 @@ import { createApp } from "./app";
 import { ConfigError, loadConfig } from "./config/load-config";
 import { type OpenedDatabase, openDatabase, redact } from "./db/client";
 import { ScanRepository } from "./db/scan-repository";
+import { PasswordAuth } from "./gateway/auth";
+import { createGateway } from "./gateway/gateway";
 import { ScanRunner } from "./services/scan-runner";
 import { SettingsService } from "./services/settings-service";
 import { UploadStore } from "./services/upload-store";
@@ -17,6 +19,10 @@ import { VERITAS_VERSION } from "./version";
  *   VERITAS_DB_DIR      embedded database folder (default: <config dir>/.veritas/pgdata)
  *   HOST / PORT         listen address (default: 127.0.0.1:4000, local machine only)
  *   VERITAS_CORS_ORIGINS  comma-separated dashboard origins (default: localhost:3000 and 127.0.0.1:3000)
+ *   VERITAS_PASSWORD    when set, every page and API call needs this password (login page
+ *                       at /login). Required when HOST is not a loopback address.
+ *   VERITAS_WEB_UPSTREAM  dashboard to serve on the same port, e.g. http://127.0.0.1:3000;
+ *                       /api/* stays with the API. Used by the Docker image.
  */
 const configDir = resolve(process.env.VERITAS_CONFIG_DIR ?? ".");
 const hostname = process.env.HOST ?? "127.0.0.1";
@@ -27,6 +33,18 @@ const corsOrigins = (
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
+const password = process.env.VERITAS_PASSWORD ?? "";
+const webUpstream = process.env.VERITAS_WEB_UPSTREAM?.trim() || undefined;
+
+// Reachable from other machines without a password would let anyone upload code and read
+// every scan, so refuse rather than start open.
+const loopback = ["127.0.0.1", "localhost", "::1"].includes(hostname);
+if (!loopback && password.length < 12) {
+  console.error(
+    `HOST=${hostname} is reachable from other machines: set VERITAS_PASSWORD (12+ characters).`,
+  );
+  process.exit(2);
+}
 
 let root: string;
 try {
@@ -65,19 +83,30 @@ const runner = new ScanRunner({
   loadConfig: settings.loadConfig,
   uploadRoot: (id) => uploads.rootOf(id),
 });
-const app = createApp({ repo, runner, settings, uploads, root, corsOrigins }).listen({
+const app = createApp({ repo, runner, settings, uploads, root, corsOrigins });
+const gateway = createGateway({
+  api: (request) => app.handle(request),
+  ...(webUpstream && { webUpstream }),
+  ...(password && { auth: new PasswordAuth(password) }),
+});
+const server = Bun.serve({
   hostname,
   port,
+  fetch: (request, srv) => gateway(request, srv.requestIP(request)?.address),
   // Above the 200 MB upload limit, so oversized uploads get a clear 413 from VERITAS.
   maxRequestBodySize: 256 * 1024 * 1024,
+  // Longer than the 15 s SSE heartbeat, so idle progress streams stay open.
+  idleTimeout: 60,
 });
 
 console.log(`VERITAS API ${VERITAS_VERSION} on http://${hostname}:${port}`);
+if (webUpstream) console.log(`  dashboard proxied from ${webUpstream}`);
+console.log(`  password ${password ? "required" : "off (local use only)"}`);
 console.log(`  scanning ${root}`);
 console.log(`  database ${location}`);
 
 const shutdown = async () => {
-  await app.stop();
+  await server.stop();
   await close();
   process.exit(0);
 };
