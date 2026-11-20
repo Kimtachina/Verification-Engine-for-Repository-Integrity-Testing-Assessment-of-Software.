@@ -81,9 +81,9 @@ export function CopyFindingsByDimension({ scan }: { scan: Scan }) {
 
   return (
     <section className="space-y-2" aria-label="คัดลอกปัญหาแยกตามมิติ">
-      <h2 className="text-sm font-medium">
+      <h2 className="slash-label">
         คัดลอกปัญหาแยกตามมิติ
-        <span className="ml-2 font-normal text-muted-foreground">
+        <span className="ml-2 font-sans font-normal tracking-normal text-muted-foreground normal-case">
           เป็นข้อความ Markdown สำหรับวางใน issue แชต หรือให้ AI ช่วยแก้
         </span>
       </h2>

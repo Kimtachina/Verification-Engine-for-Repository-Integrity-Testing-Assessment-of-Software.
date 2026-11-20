@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { ApiErrorAlert, LoadingBlock } from "@/components/api-state";
 import { SeverityCountsRow } from "@/components/findings/severity-badge";
+import { PageHero } from "@/components/page-hero";
 import { ScanStatusBadge } from "@/components/scan/recent-scans";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,15 +45,11 @@ export function History() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <p className="slash-label">Scan History</p>
-        <h1 className="font-display text-4xl leading-tight font-black tracking-tight sm:text-5xl">
-          ประวัติการสแกน
-        </h1>
+      <PageHero seed={19} label="Scan History" title="ประวัติการสแกน">
         <p className="text-muted-foreground">
           ดูแนวโน้มคะแนน และเลือก 2 การสแกนเพื่อเทียบว่าอะไรดีขึ้นหรือแย่ลง
         </p>
-      </div>
+      </PageHero>
 
       <Card>
         <CardHeader>
@@ -66,7 +63,7 @@ export function History() {
 
       <section className="space-y-3" aria-labelledby="scan-list">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="scan-list" className="text-lg font-semibold">
+          <h2 id="scan-list" className="slash-label">
             ทั้งหมด {data.length} ครั้ง
           </h2>
           {base && head ? (

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ApiErrorAlert, LoadingBlock } from "@/components/api-state";
 import { SeverityBadge } from "@/components/findings/severity-badge";
+import { PageHero } from "@/components/page-hero";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCompare, useScan } from "@/hooks/queries";
 import { dimensionLabel, formatDateTime, formatLocation } from "@/lib/format";
@@ -50,12 +51,7 @@ export function Compare() {
 
   return (
     <div className="space-y-8">
-      <div className="space-y-1">
-        {back}
-        <p className="slash-label">Comparison</p>
-        <h1 className="font-display text-4xl leading-tight font-black tracking-tight sm:text-5xl">
-          เทียบการสแกน
-        </h1>
+      <PageHero seed={23} label="Comparison" title="เทียบการสแกน" back={back}>
         <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <Link href={`/scans/${base.data.id}`} className="hover:underline">
             {formatDateTime(base.data.startedAt)}
@@ -65,7 +61,7 @@ export function Compare() {
             {formatDateTime(head.data.startedAt)}
           </Link>
         </p>
-      </div>
+      </PageHero>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="คะแนนรวม" delta={c.scoreDelta} from={base.data.score} to={head.data.score} />
@@ -208,7 +204,7 @@ function FindingList({
 }) {
   return (
     <section className="space-y-3" aria-label={title}>
-      <h2 className="text-lg font-semibold">
+      <h2 className="slash-label">
         {title} ({findings.length})
       </h2>
       {findings.length === 0 ? (

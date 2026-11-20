@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ApiErrorAlert, LoadingBlock } from "@/components/api-state";
 import { CodeSnippet } from "@/components/findings/code-snippet";
 import { SeverityBadge } from "@/components/findings/severity-badge";
+import { PageHero } from "@/components/page-hero";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFinding } from "@/hooks/queries";
 import { findingsHref } from "@/lib/finding-filters";
@@ -37,8 +38,7 @@ export function FindingDetail({ findingId }: { findingId: string }) {
 
   return (
     <article className="space-y-6">
-      {back}
-      <header className="space-y-3">
+      <PageHero seed={47} label="Finding" title={f.message} back={back} compact>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <SeverityBadge severity={f.severity} />
           <span className="text-muted-foreground">{dimensionLabel(f.dimension)}</span>
@@ -47,7 +47,6 @@ export function FindingDetail({ findingId }: { findingId: string }) {
           </span>
           <span className="font-mono text-xs text-muted-foreground">{f.ruleId}</span>
         </div>
-        <h1 className="text-xl font-semibold leading-relaxed whitespace-pre-line">{f.message}</h1>
         <p className="font-mono text-sm break-all">
           {scanId && f.file !== "." ? (
             <Link href={findingsHref(scanId, { file: f.file })} className="hover:underline">
@@ -57,7 +56,7 @@ export function FindingDetail({ findingId }: { findingId: string }) {
             formatLocation(f)
           )}
         </p>
-      </header>
+      </PageHero>
 
       {f.snippet !== undefined && <CodeSnippet code={f.snippet} startLine={f.startLine} />}
 

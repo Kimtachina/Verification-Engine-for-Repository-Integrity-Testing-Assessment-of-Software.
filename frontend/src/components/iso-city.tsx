@@ -77,56 +77,89 @@ function buildCity(seed: number, size: number, unit: number): Box[] {
 }
 
 const UNIT = 26;
-const CITY = buildCity(7, 9, UNIT);
+interface Drawing {
+  shapes: Array<{
+    key: number;
+    top: Point[];
+    right: Point[];
+    left: Point[];
+    slats: Array<[Point, Point]>;
+  }>;
+  viewBox: string;
+}
 
-const shapes = CITY.map((b, i) => {
-  const top = [
-    project(b.x, b.y, b.z + b.h),
-    project(b.x + b.w, b.y, b.z + b.h),
-    project(b.x + b.w, b.y + b.d, b.z + b.h),
-    project(b.x, b.y + b.d, b.z + b.h),
-  ];
-  const right = [
-    project(b.x + b.w, b.y, b.z),
-    project(b.x + b.w, b.y + b.d, b.z),
-    project(b.x + b.w, b.y + b.d, b.z + b.h),
-    project(b.x + b.w, b.y, b.z + b.h),
-  ];
-  const left = [
-    project(b.x, b.y + b.d, b.z),
-    project(b.x + b.w, b.y + b.d, b.z),
-    project(b.x + b.w, b.y + b.d, b.z + b.h),
-    project(b.x, b.y + b.d, b.z + b.h),
-  ];
-  const slats: Array<[Point, Point]> = [];
-  for (let s = 1; s <= b.slats; s++) {
-    const f = s / (b.slats + 1);
-    slats.push([
-      project(b.x + b.w, b.y + b.d * f, b.z),
-      project(b.x + b.w, b.y + b.d * f, b.z + b.h),
-    ]);
-    slats.push([
-      project(b.x + b.w * f, b.y + b.d, b.z),
-      project(b.x + b.w * f, b.y + b.d, b.z + b.h),
-    ]);
-  }
-  return { key: i, top, right, left, slats };
-});
+/** Each (seed, size) is drawn once per process and reused. */
+const drawings = new Map<string, Drawing>();
 
-const xs = shapes.flatMap((s) => [...s.top, ...s.left, ...s.right].map((p) => p[0]));
-const ys = shapes.flatMap((s) => [...s.top, ...s.left, ...s.right].map((p) => p[1]));
-const PAD = 2;
-const VIEW = {
-  x: Math.min(...xs) - PAD,
-  y: Math.min(...ys) - PAD,
-  w: Math.max(...xs) - Math.min(...xs) + PAD * 2,
-  h: Math.max(...ys) - Math.min(...ys) + PAD * 2,
-};
+function drawing(seed: number, size: number): Drawing {
+  const key = `${seed}:${size}`;
+  const cached = drawings.get(key);
+  if (cached) return cached;
 
-export function IsoCity({ className }: { className?: string }) {
+  const shapes = buildCity(seed, size, UNIT).map((b, i) => {
+    const top = [
+      project(b.x, b.y, b.z + b.h),
+      project(b.x + b.w, b.y, b.z + b.h),
+      project(b.x + b.w, b.y + b.d, b.z + b.h),
+      project(b.x, b.y + b.d, b.z + b.h),
+    ];
+    const right = [
+      project(b.x + b.w, b.y, b.z),
+      project(b.x + b.w, b.y + b.d, b.z),
+      project(b.x + b.w, b.y + b.d, b.z + b.h),
+      project(b.x + b.w, b.y, b.z + b.h),
+    ];
+    const left = [
+      project(b.x, b.y + b.d, b.z),
+      project(b.x + b.w, b.y + b.d, b.z),
+      project(b.x + b.w, b.y + b.d, b.z + b.h),
+      project(b.x, b.y + b.d, b.z + b.h),
+    ];
+    const slats: Array<[Point, Point]> = [];
+    for (let s = 1; s <= b.slats; s++) {
+      const f = s / (b.slats + 1);
+      slats.push([
+        project(b.x + b.w, b.y + b.d * f, b.z),
+        project(b.x + b.w, b.y + b.d * f, b.z + b.h),
+      ]);
+      slats.push([
+        project(b.x + b.w * f, b.y + b.d, b.z),
+        project(b.x + b.w * f, b.y + b.d, b.z + b.h),
+      ]);
+    }
+    return { key: i, top, right, left, slats };
+  });
+
+  const points = shapes.flatMap((s) => [...s.top, ...s.left, ...s.right]);
+  const xs = points.map((p) => p[0]);
+  const ys = points.map((p) => p[1]);
+  const pad = 2;
+  const x = Math.min(...xs) - pad;
+  const y = Math.min(...ys) - pad;
+  const w = Math.max(...xs) - Math.min(...xs) + pad * 2;
+  const h = Math.max(...ys) - Math.min(...ys) + pad * 2;
+  const result = {
+    shapes,
+    viewBox: `${x.toFixed(1)} ${y.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`,
+  };
+  drawings.set(key, result);
+  return result;
+}
+
+/** `seed` picks the skyline; `size` is how many blocks along each side. */
+export function IsoCity({
+  className,
+  seed = 7,
+  size = 9,
+}: {
+  className?: string;
+  seed?: number;
+  size?: number;
+}) {
+  const { shapes, viewBox } = drawing(seed, size);
   return (
     <svg
-      viewBox={`${VIEW.x.toFixed(1)} ${VIEW.y.toFixed(1)} ${VIEW.w.toFixed(1)} ${VIEW.h.toFixed(1)}`}
+      viewBox={viewBox}
       className={className}
       aria-hidden
       focusable="false"

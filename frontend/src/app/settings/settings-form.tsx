@@ -4,6 +4,7 @@ import { DIMENSIONS, SEVERITIES, type Settings } from "@veritas/shared";
 import { Check, RotateCcw, Save } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { ApiErrorAlert, LoadingBlock } from "@/components/api-state";
+import { PageHero } from "@/components/page-hero";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -67,18 +68,14 @@ export function SettingsForm() {
 
   return (
     <form onSubmit={submit} className="space-y-6">
-      <div>
-        <p className="slash-label">Configuration</p>
-        <h1 className="font-display text-4xl leading-tight font-black tracking-tight sm:text-5xl">
-          ตั้งค่า
-        </h1>
+      <PageHero seed={31} label="Configuration" title="ตั้งค่า">
         <p className="text-muted-foreground">
           ใช้กับการสแกนที่เริ่มจากหน้าเว็บนี้ ซ้อนทับค่าใน{" "}
           <code className="font-mono">{s.configPath ? "veritas.config.ts" : "ค่าเริ่มต้น"}</code>{" "}
           ช่องที่เว้นว่างจะใช้ค่าจากไฟล์ (แสดงเป็นตัวจาง) คำสั่ง <code className="font-mono">bun run scan</code>{" "}
           ใช้เฉพาะค่าในไฟล์ เพื่อให้ผลใน CI เหมือนเดิมทุกครั้ง
         </p>
-      </div>
+      </PageHero>
 
       <Card>
         <CardHeader>

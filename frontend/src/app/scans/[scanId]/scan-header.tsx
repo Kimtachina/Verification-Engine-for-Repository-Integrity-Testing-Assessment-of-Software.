@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ApiErrorAlert, LoadingBlock } from "@/components/api-state";
 import { SeverityCountsRow } from "@/components/findings/severity-badge";
+import { PageHero } from "@/components/page-hero";
 import { DimensionGrid } from "@/components/scan/dimension-grid";
 import { ScanStatusBadge } from "@/components/scan/recent-scans";
 import { ReportDownloads } from "@/components/scan/report-downloads";
@@ -26,8 +27,11 @@ export function ScanHeader({ scanId }: { scanId: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
+      <PageHero
+        seed={11}
+        label="Scan Report"
+        title="ผลการสแกน"
+        back={
           <Link
             href="/"
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -35,18 +39,15 @@ export function ScanHeader({ scanId }: { scanId: string }) {
             <ArrowLeft className="size-4" aria-hidden />
             ภาพรวม
           </Link>
-          <p className="slash-label">Scan Report</p>
-          <h1 className="font-display text-4xl leading-tight font-black tracking-tight sm:text-5xl">
-            ผลการสแกน
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {formatDateTime(scan.startedAt)}
-            {duration !== null && ` · ใช้เวลา ${formatDuration(duration)}`}
-          </p>
-          <p className="break-all font-mono text-xs text-muted-foreground">{scan.root}</p>
-        </div>
-        {scan.status === "completed" && <ReportDownloads scanId={scan.id} />}
-      </div>
+        }
+        aside={scan.status === "completed" && <ReportDownloads scanId={scan.id} />}
+      >
+        <p className="text-sm text-muted-foreground">
+          {formatDateTime(scan.startedAt)}
+          {duration !== null && ` · ใช้เวลา ${formatDuration(duration)}`}
+        </p>
+        <p className="break-all font-mono text-xs text-muted-foreground">{scan.root}</p>
+      </PageHero>
 
       {scan.status === "running" || scan.status === "queued" ? (
         <ScanProgressCard scanId={scan.id} />
