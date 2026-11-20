@@ -32,7 +32,7 @@ export function FileTable({ scanId }: { scanId: string }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>ไฟล์</TableHead>
+            <TableHead className="w-[55%]">ไฟล์</TableHead>
             <TableHead>ปัญหา</TableHead>
             <TableHead className="w-20 text-right">รวม</TableHead>
           </TableRow>

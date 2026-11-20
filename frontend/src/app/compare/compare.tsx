@@ -70,7 +70,7 @@ export function Compare() {
             <p className="text-sm text-muted-foreground">ปัญหาใหม่</p>
             <p
               className={cn(
-                "text-3xl font-semibold tabular-nums",
+                "font-display text-3xl font-black tabular-nums",
                 c.introduced.length > 0 && "text-sev-high",
               )}
             >
@@ -83,7 +83,7 @@ export function Compare() {
             <p className="text-sm text-muted-foreground">แก้แล้ว</p>
             <p
               className={cn(
-                "text-3xl font-semibold tabular-nums",
+                "font-display text-3xl font-black tabular-nums",
                 c.resolved.length > 0 && "text-good",
               )}
             >
