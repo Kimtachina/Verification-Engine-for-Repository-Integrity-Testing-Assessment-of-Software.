@@ -49,7 +49,7 @@ export function ScoreRing({
           r={radius}
           fill="none"
           strokeWidth={stroke}
-          strokeLinecap="round"
+          strokeLinecap="butt"
           strokeDasharray={`${filled} ${circumference}`}
           className={cn(
             "transition-[stroke-dasharray] duration-700",
@@ -59,11 +59,13 @@ export function ScoreRing({
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-semibold tabular-nums leading-none">
+        <span className="font-display text-4xl leading-none font-black tabular-nums">
           {score === null ? "—" : Math.round(score)}
         </span>
         {grade && (
-          <span className={cn("mt-1 text-sm font-semibold", gradeTone(grade))}>เกรด {grade}</span>
+          <span className={cn("mt-1 font-display text-sm font-bold", gradeTone(grade))}>
+            เกรด {grade}
+          </span>
         )}
       </div>
     </div>

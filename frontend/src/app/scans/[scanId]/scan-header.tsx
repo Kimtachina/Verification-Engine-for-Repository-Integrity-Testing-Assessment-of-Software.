@@ -35,7 +35,10 @@ export function ScanHeader({ scanId }: { scanId: string }) {
             <ArrowLeft className="size-4" aria-hidden />
             ภาพรวม
           </Link>
-          <h1 className="text-2xl font-semibold tracking-tight">ผลการสแกน</h1>
+          <p className="slash-label">Scan Report</p>
+          <h1 className="font-display text-4xl leading-tight font-black tracking-tight sm:text-5xl">
+            ผลการสแกน
+          </h1>
           <p className="text-sm text-muted-foreground">
             {formatDateTime(scan.startedAt)}
             {duration !== null && ` · ใช้เวลา ${formatDuration(duration)}`}

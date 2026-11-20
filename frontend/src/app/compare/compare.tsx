@@ -52,7 +52,10 @@ export function Compare() {
     <div className="space-y-8">
       <div className="space-y-1">
         {back}
-        <h1 className="text-2xl font-semibold tracking-tight">เทียบการสแกน</h1>
+        <p className="slash-label">Comparison</p>
+        <h1 className="font-display text-4xl leading-tight font-black tracking-tight sm:text-5xl">
+          เทียบการสแกน
+        </h1>
         <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <Link href={`/scans/${base.data.id}`} className="hover:underline">
             {formatDateTime(base.data.startedAt)}

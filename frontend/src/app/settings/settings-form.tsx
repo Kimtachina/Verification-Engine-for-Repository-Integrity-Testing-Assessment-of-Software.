@@ -68,7 +68,10 @@ export function SettingsForm() {
   return (
     <form onSubmit={submit} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">ตั้งค่า</h1>
+        <p className="slash-label">Configuration</p>
+        <h1 className="font-display text-4xl leading-tight font-black tracking-tight sm:text-5xl">
+          ตั้งค่า
+        </h1>
         <p className="text-muted-foreground">
           ใช้กับการสแกนที่เริ่มจากหน้าเว็บนี้ ซ้อนทับค่าใน{" "}
           <code className="font-mono">{s.configPath ? "veritas.config.ts" : "ค่าเริ่มต้น"}</code>{" "}

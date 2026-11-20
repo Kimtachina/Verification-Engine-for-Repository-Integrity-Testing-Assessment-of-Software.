@@ -24,8 +24,8 @@ export function DimensionGrid({
         const body = (
           <div
             className={cn(
-              "flex h-full flex-col gap-2 rounded-xl border bg-card p-4 transition-colors",
-              hrefFor && "hover:border-foreground/30 hover:bg-muted/40",
+              "flex h-full flex-col gap-2 border border-foreground/35 bg-card p-4 transition-colors",
+              hrefFor && "hover:border-signal hover:bg-muted/40",
             )}
           >
             <div className="flex items-start justify-between gap-2">
@@ -36,7 +36,9 @@ export function DimensionGrid({
             </div>
             {d.score !== null ? (
               <>
-                <span className="text-2xl font-semibold tabular-nums">{Math.round(d.score)}</span>
+                <span className="font-display text-3xl font-black tabular-nums">
+                  {Math.round(d.score)}
+                </span>
                 <SeverityCountsRow counts={d.counts} className="text-xs" />
               </>
             ) : (

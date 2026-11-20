@@ -45,7 +45,10 @@ export function History() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">ประวัติการสแกน</h1>
+        <p className="slash-label">Scan History</p>
+        <h1 className="font-display text-4xl leading-tight font-black tracking-tight sm:text-5xl">
+          ประวัติการสแกน
+        </h1>
         <p className="text-muted-foreground">
           ดูแนวโน้มคะแนน และเลือก 2 การสแกนเพื่อเทียบว่าอะไรดีขึ้นหรือแย่ลง
         </p>
@@ -176,12 +179,7 @@ function TrendChart({ scans }: { scans: Scan[] }) {
           );
         })}
         {points.length > 1 && (
-          <path
-            d={trendPath(points)}
-            fill="none"
-            strokeWidth={2}
-            className="stroke-foreground/70"
-          />
+          <path d={trendPath(points)} fill="none" strokeWidth={2} className="stroke-signal" />
         )}
         {points.map((p) => (
           <Link key={p.scan.id} href={`/scans/${p.scan.id}`}>
